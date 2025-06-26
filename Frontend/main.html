@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkillSync Mobile Feed</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    body {
+      background-color: #f5f7fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding-bottom: 60px;
+    }
+    .app-header {
+      background-color: #0c234b;
+      color: #fff;
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .app-header .logo {
+      height: 32px;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-info img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+    }
+    .points {
+      font-size: 0.85rem;
+      color: #ffdd57;
+    }
+    .feeds-title {
+      margin: 15px;
+      font-weight: 600;
+    }
+    .search-bar {
+      margin: 0 15px 15px;
+      position: relative;
+    }
+    .search-bar input {
+      width: 100%;
+      padding-right: 40px;
+    }
+    .search-bar .fa-search {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #888;
+    }
+    .card-feed {
+      margin: 10px 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .card-feed .card-body {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-feed .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .wave-graphic {
+      flex: 1;
+      height: 40px;
+      background: linear-gradient(90deg,#3b82f6, #60a5fa,#93c5fd);
+      border-radius: 4px;
+    }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0;
+    }
+    .bottom-nav .nav-item i {
+      font-size: 1.4rem;
+      color: #555;
+    }
+    .bottom-nav .nav-item span {
+      display: block;
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <img src="logo.png" alt="SkillSync Logo" class="logo">
+    <div class="user-info">
+      <div>
+        <div>Cheerawit Keerati</div>
+        <div class="points">Your points: 2000 Points</div>
+      </div>
+      <img src="avatar.jpg" alt="User Avatar">
+    </div>
+  </header>
+  <h5 class="feeds-title">Your Feeds <span class="text-danger">200+ Post</span></h5>
+  <div class="search-bar">
+    <input type="text" id="search-input" class="form-control" placeholder="Searching Posts">
+    <i class="fa fa-search"></i>
+  </div>
+  <div id="feed-list">
+    <!-- Sample Feed Item 1 -->
+    <div class="card card-feed" data-author="Thorfun">
+      <div class="card-body">
+        <img src="thorfun.jpg" alt="Thorfun N." class="avatar">
+        <div>
+          <div><strong>Thorfun N.</strong></div>
+          <small>Physics : wave<br>Video & Worksheets</small>
+        </div>
+        <div class="wave-graphic"></div>
+      </div>
+    </div>
+    <!-- Sample Feed Item 2 -->
+    <div class="card card-feed" data-author="Punyawee">
+      <div class="card-body">
+        <img src="punyawee.jpg" alt="Punyawee S." class="avatar">
+        <div>
+          <div><strong>Punyawee S.</strong></div>
+          <small>ขอสอบถามผู้รู้ครับ ใครช่วยอธิบายโจทย์หาคำตอบทีครับ??</small>
+        </div>
+        <div class="border p-2 rounded bg-white">
+          <small>จากสมการ x, y<br>x - \frac{1}{x} = 4<br>x^2 + \frac{1}{x^2} = 2y</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item text-center">
+      <i class="fa fa-question-circle"></i><span>Quiz</span>
+    </div>
+    <div class="nav-item text-center">
+      <i class="fa fa-book"></i><span>Lesson</span>
+    </div>
+    <div class="nav-item text-center">
+      <i class="fa fa-home"></i><span>Home</span>
+    </div>
+    <div class="nav-item text-center">
+      <i class="fa fa-comments"></i><span>Chat Feed</span>
+    </div>
+  </nav>
+
+  <!-- Bootstrap JS & dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Simple search filter
+    document.getElementById('search-input').addEventListener('input', function(e) {
+      const filter = e.target.value.toLowerCase();
+      document.querySelectorAll('#feed-list .card-feed').forEach(card => {
+        const author = card.getAttribute('data-author').toLowerCase();
+        card.style.display = author.includes(filter) ? 'flex' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>
