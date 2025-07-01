@@ -1,1 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillSync</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Helvetica Neue', sans-serif;
+      background-color: #edffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1500px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-color: #edffff;
+      border-top: 50px solid #000c55;
+      border-bottom: 50px solid #000c55;
+    }
+
+    .logo {
+      width: 250px;
+      margin-bottom: 10px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .button {
+      width: 200px;
+      padding: 14px 0;
+      margin: 12px 0;
+      font-size: 18px;
+      border: none;
+      border-radius: 30px;
+      background-color: #a0e7f8;
+      color: #000;
+      font-weight: 500;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .button:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .button:active {
+      transform: scale(1.15);
+      background-color: #8fd6ea;
+    }
+
+    .button::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.4);
+      transition: width 0.3s ease;
+      z-index: 0;
+    }
+
+    .button:hover::after {
+      width: 100%;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <img src="SkillSyncLogo.png" alt="SkillSync Logo" class="logo" />
+    <button class="button" id="registerBtn">Register</button>
+    <button class="button" id="loginBtn">Login</button>
+  </div>
+
+  <script>
+    document.getElementById('registerBtn').addEventListener('click', () => {
+      alert("Navigating to Register Page...");
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      alert("Navigating to Login Page...");
+    });
+  </script>
+</body>
+</html>
 
