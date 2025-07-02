@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload Videos</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+    }
+    body {
+      background-color: #fff;
+    }
+    .top-section {
+      background-color: #00125a;
+      padding: 1.5rem 1rem 1rem;
+    }
+    .upload-title-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.2rem;
+      background-color: #fff;
+      border-bottom: 1px solid #ccc;
+    }
+    .upload-title {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #00125a;
+    }
+    .upload-button {
+      background-color: #003c96;
+      color: white;
+      padding: 0.5rem 1.5rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .upload-button:hover {
+      background-color: #0054d6;
+      transform: scale(1.05);
+    }
+    .container {
+      padding: 1rem 1.2rem 2rem 1.2rem;
+    }
+    .profile {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .profile img {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin-right: 0.8rem;
+    }
+    .dropdown {
+      padding: 0.3rem 0.8rem;
+      margin-right: 0.5rem;
+      border-radius: 8px;
+      border: none;
+      background-color: #ddd;
+      font-weight: bold;
+    }
+    .choose-subject {
+      background-color: #ff5e00;
+      color: white;
+      padding: 0.5rem 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .choose-subject:hover {
+      background-color: #ff7700;
+      transform: scale(1.05);
+    }
+    .text-area, .quiz-text {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: #00125a;
+      font-weight: bold;
+    }
+    .drag-box {
+      margin: 2rem auto;
+      text-align: center;
+      border: 2px dashed #000;
+      padding: 2rem;
+      border-radius: 10px;
+      max-width: 300px;
+    }
+    .add-quiz {
+      background-color: #774aff;
+      color: white;
+      padding: 0.6rem 1.2rem;
+      font-weight: bold;
+      border-radius: 16px;
+      border: none;
+      font-size: 1rem;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .add-quiz:hover {
+      background-color: #8e63ff;
+      transform: scale(1.05);
+    }
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+  </style>
+  <script>
+    function handleDragEnter(e) {
+      e.preventDefault();
+      e.target.style.borderColor = 'blue';
+    }
+    function handleDragLeave(e) {
+      e.preventDefault();
+      e.target.style.borderColor = '#000';
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      alert("Video file dropped!");
+    }
+  </script>
+</head>
+<body>
+  <div class="top-section"></div>
+
+  <div class="upload-title-wrapper">
+    <div class="upload-title">Upload Videos</div>
+    <button class="upload-button">Upload</button>
+  </div>
+
+  <div class="container">
+    <div class="profile">
+      <img src="Sign-in.png" alt="profile" />
+      <select class="dropdown">
+        <option>Public</option>
+        <option>Private</option>
+      </select>
+      <button class="choose-subject">Choose Subject</button>
+    </div>
+    <div class="text-area">
+      Type Something.......
+    </div>
+    <div class="drag-box" oer="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" ondragover="event.preventDefault()">
+      <img src="camera.png" width="40" /><br />
+      Drag or drop video files here
+    </div>
+    <div>
+      <button class="add-quiz">Add Quiz</button>
+      <div class="quiz-text" style="margin-bottom: 0.5rem;">Type something.......</div>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+</div>
+
+</body>
+</html>
