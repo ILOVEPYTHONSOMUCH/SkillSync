@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Arial Rounded MT Bold', sans-serif;
+      background: #ffffff;
+    }
+    .header {
+      background: #090963;
+      color: white;
+      padding: 20px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .quiz-title-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+    }
+    .quiz-title {
+      font-size: 36px;
+      color: #090963;
+      margin-right: 10px;
+    }
+    .logo {
+      height: 36px;
+      object-fit: contain;
+    }
+    .progress-container {
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      position: relative;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 10px;
+      background: #ddd;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-right: 10px;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      background: orange;
+      width: 80%;
+      position: relative;
+    }
+    .points {
+      font-size: 14px;
+      color: #555;
+    }
+    .quiz-box {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 15px;
+      padding: 15px;
+      margin: 20px;
+    }
+    .question {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .blanks {
+      margin-top: 10px;
+      font-size: 16px;
+    }
+    .blanks input {
+      width: 60px;
+      height: 30px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      text-align: center;
+      background-color: #ffffff;
+      transition: transform 0.2s ease;
+    }
+    .blanks input:hover {
+      transform: scale(1.2);
+    }
+    .answer-options {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin: 20px;
+    }
+    .answer {
+      background: #ffdcdc;
+      padding: 15px 25px;
+      border-radius: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .answer:hover {
+      transform: scale(1.2);
+    }
+    .check-btn {
+      background: #44d100;
+      color: white;
+      font-size: 20px;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 15px;
+      cursor: pointer;
+      margin: 20px auto;
+      display: block;
+      font-weight: bold;
+      transition: transform 0.2s ease;
+    }
+    .check-btn:hover {
+      transform: scale(1.1);
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">ENGLISH QUIZ</div>
+  <div class="quiz-title-container">
+    <span class="quiz-title">Quiz</span>
+    <img class="logo" src="SkillSyncLogo.png" alt="Logo" />
+  </div>
+
+  <div class="progress-container">
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="points">2000 points</div>
+  </div>
+
+  <div class="quiz-box">
+    <div class="question">8. จงเติม verb to be ในช่องว่างต่อไปนี้</div>
+    <div class="blanks">
+      1. I <input type="text" value="am" readonly /> washing the dishes in the kitchen now.<br />
+      2. My mother and I <input type="text" /> watching TV now.<br />
+      3. Tyrun and Dino <input type="text" /> studying English now.<br />
+      4. The boys <input type="text" /> playing football.<br />
+      5. The dog and the cat <input type="text" /> running into the house now.<br />
+      6. A boy <input type="text" /> crying now.
+    </div>
+  </div>
+
+  <div class="answer-options">
+    <div class="answer">Is</div>
+    <div class="answer">Am</div>
+    <div class="answer">Are</div>
+    <div class="answer">Are</div>
+    <div class="answer">Are</div>
+    <div class="answer">Are</div>
+  </div>
+
+  <button class="check-btn">Check the answers</button>
+
+  <script>
+    const answers = document.querySelectorAll('.answer');
+    let selectedIndex = 0;
+    const inputs = document.querySelectorAll('.blanks input');
+    inputs.forEach((input, i) => {
+      if (input.value !== 'am') input.addEventListener('click', () => selectedIndex = i);
+    });
+
+    answers.forEach(el => {
+      el.addEventListener('click', () => {
+        if (inputs[selectedIndex].value === 'am') return;
+        inputs[selectedIndex].value = el.textContent;
+      });
+    });
+  </script>
+
+<div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+</div>
+
+</body>
+</html>
