@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lessons</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Arial', sans-serif;
+    }
+
+    body {
+      background-color: #f2f2f2;
+    }
+
+    .top-bar {
+      background-color: #000c52;
+      height: 50px;
+    }
+
+    .header-container {
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 15px 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .header-container .title {
+      font-size: 28px;
+      font-weight: bold;
+      color: #000c52;
+    }
+
+    .header-container img {
+      height: 40px;
+    }
+
+    .search-container {
+      display: flex;
+      align-items: center;
+      padding: 10px 15px;
+      background: white;
+    }
+
+    .search-box {
+      flex: 1;
+      padding: 10px 15px;
+      font-size: 16px;
+      border: 2px solid lightgray;
+      border-radius: 20px;
+      transition: all 0.3s ease-in-out;
+    }
+
+    .search-box:focus {
+      transform: scale(1.05);
+      border-color: #000c52;
+      max-width: 30%;
+    }
+
+    .section-title {
+      background-color: #000c52;
+      color: white;
+      font-size: 20px;
+      padding: 8px 15px;
+      display: inline-block;
+      border-radius: 8px;
+      margin: 20px 15px 10px;
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .section-title:hover {
+      transform: scale(1.05);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 15px;
+    }
+
+    .more-link {
+      color: #000;
+      font-size: 14px;
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .more-link:hover {
+      transform: scale(1.05);
+    }
+
+    .card-container {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 0 10px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+      margin: 10px;
+      padding: 10px;
+      width: calc(50% - 20px);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+    }
+
+    .card img {
+      width: 100%;
+      border-radius: 10px;
+    }
+
+    .card .info {
+      margin-top: 8px;
+    }
+
+    .info strong {
+      font-size: 16px;
+    }
+
+    .badge {
+      font-size: 12px;
+      color: white;
+      background: brown;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+
+    .comment-box {
+  margin-top: 10px;
+}
+
+.comment-box textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  resize: vertical;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.comment-box button {
+  margin-top: 5px;
+  background-color: #000c52;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.comment-box button:hover {
+  background-color: #333b80;
+}
+
+  </style>
+</head>
+
+<body>
+  <div class="top-bar"></div>
+
+  <div class="header-container">
+    <div class="title">Lessons</div>
+    <img src="SkillSyncLogo.png" alt="logo">
+  </div>
+
+  <div class="search-container">
+    <input type="text" class="search-box" placeholder="Searching Lessons">
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Videos</div>
+    <a class="more-link" href="#">More Videos&gt;&gt;</a>
+  </div>
+
+  <div class="card-container">
+    <div class="card">
+      <img src="video.jpg" alt="Thorfun video">
+      <div class="info">
+        <strong>Thorfun N.</strong><span class="badge" style="background-color:#c14444;">Math</span><br>
+        Video & Worksheets : set
+      </div>
+      <div class="comment-box">
+        <textarea placeholder="Write a comment..."></textarea>
+        <button type="button">Post</button>
+      </div>      
+    </div>
+    <div class="card">
+      <img src="video.jpg" alt="Punyawee video">
+      <div class="info">
+        <strong>Punyawee S.</strong><span class="badge" style="background-color:#5f3dc4;">Physics</span><br>
+        Video & Worksheets : Simple Harmonic
+        <div class="comment-box">
+            <textarea placeholder="Write a comment..."></textarea>
+            <button type="button">Post</button>
+          </div>          
+      </div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Worksheets</div>
+    <a class="more-link" href="#">More Worksheets&gt;&gt;</a>
+  </div>
+
+  <div class="card-container">
+    <div class="card" style="width: calc(100% - 20px);">
+      <img src="worksheets.jpg" alt="Worksheet image">
+      <div class="info">
+        <strong>napgains</strong><span class="badge" style="background-color:#b04d3f;">English</span><br>
+        Worksheets : Verb to be
+      </div>
+      <div class="comment-box">
+        <textarea placeholder="Write a comment..."></textarea>
+        <button type="button">Post</button>
+      </div>      
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+  </div>
+
+</body>
+</html>
+
+
+
