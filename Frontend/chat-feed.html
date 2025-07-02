@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat Feed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: #000d63;
+      color: #000;
+    }
+
+    .app-container {
+      background-color: white;
+      max-width: 100%;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-spacer {
+      height: 60px;
+      background-color: #000d63;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .header-content h1 {
+      font-size: 20px;
+      font-weight: bold;
+      color: #000;
+    }
+
+    .header-content img {
+      width: 40px;
+      height: auto;
+    }
+
+    .search-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 15px;
+    }
+
+    .search-box {
+      background: #f2f2f2;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      padding: 8px 15px;
+      width: 90%;
+    }
+
+    .search-box input {
+      border: none;
+      background: transparent;
+      flex-grow: 1;
+      font-size: 14px;
+      padding-left: 10px;
+    }
+
+    .search-box input:focus {
+      outline: none;
+    }
+
+    .status-bar {
+      display: flex;
+      overflow-x: auto;
+      padding: 0 10px;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .status {
+      background: #f2f2f2;
+      padding: 10px;
+      border-radius: 20px;
+      min-width: 140px;
+      text-align: center;
+      position: relative;
+    }
+
+    .status img {
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      position: absolute;
+      bottom: -25px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 2px solid white;
+    }
+
+    .status-bar-container {
+      padding-bottom: 40px;
+    }
+
+    .chats {
+      padding: 0 15px;
+    }
+
+    .chats h2 {
+      color: #000d63;
+      font-size: 20px;
+      margin-bottom: 15px;
+    }
+
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 10px;
+      transition: background-color 0.3s;
+    }
+
+    .chat-item:hover {
+      background-color: #f0f0f0;
+      cursor: pointer;
+    }
+
+    .chat-item img {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+    }
+
+    .chat-info {
+      display: flex;
+      flex-direction: column;
+      font-size: 14px;
+    }
+
+    .chat-info strong {
+      font-size: 15px;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      background-color: white;
+      padding: 10px 0;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+    .nav-item:hover {
+      transform: scale(1.05);
+      transition: transform 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-spacer"></div>
+  <div class="app-container">
+    <div class="header-content">
+      <h1>Cheerawit Keerati</h1>
+      <img src="SkillSyncLogo.png" alt="logo">
+    </div>
+
+    <div class="search-container">
+      <div class="search-box">
+        <img src="https://img.icons8.com/ios-filled/20/search--v1.png" alt="search" />
+        <input type="text" placeholder="Searching Friends" />
+      </div>
+    </div>
+
+    <div class="status-bar status-bar-container">
+      <div class="status">
+        what’s on your mind?
+        <img src="Sign-in.png" alt="your note" />
+      </div>
+      <div class="status">
+        โจทย์ยากเวอร์ ทำไม่เป็น
+        <img src="Sign-in.png" alt="Thorfun" />
+      </div>
+      <div class="status">
+        ชีวิตต้องไปต่อ !!!!
+        <img src="Sign-in.png" alt="Punyawee" />
+      </div>
+    </div>
+
+    <div class="chats">
+      <h2>Chats</h2>
+
+      <div class="chat-item">
+        <img src="Sign-in.png" alt="Thorfan" />
+        <div class="chat-info">
+          <strong>Thorfun N.</strong>
+          <span>อย่าลืมทำแบบฝึกหัดนะ : 15m</span>
+        </div>
+      </div>
+
+      <div class="chat-item">
+        <img src="Sign-in.png" alt="Punyawee" />
+        <div class="chat-info">
+          <strong>Punyawee S.</strong>
+          <span>มีโพสต์ที่สอนเรื่องสมดุลมั้ย ส่งมาให้หน่อย : 3m</span>
+        </div>
+      </div>
+
+      <div class="chat-item">
+        <img src="Sign-in.png" alt="napgains" />
+        <div class="chat-info">
+          <strong>napgains</strong>
+          <span>ได้สิ เดี๋ยวพรุ่งนี้ไปติวภาษาอังกฤษกัน : 1h</span>
+        </div>
+      </div>
+
+      <div class="chat-item">
+        <img src="Sign-in.png" alt="hs_smuththa" />
+        <div class="chat-info">
+          <strong>hs_smuththa</strong>
+          <span>มีสรุปอังกฤษมั้ย : 35m</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+        <div class="nav-item">
+            <img src="home.png" alt="Home" />
+            <div>HOME</div>
+         </div>
+         <div class="nav-item">      
+           <img src="quiz.png" alt="Quiz" />
+           <div>QUIZ</div>
+         </div>
+         <div class="nav-item">
+           <img src="lesson.png" alt="Lesson" />
+           <div>LESSON</div>
+         </div>
+         <div class="nav-item">
+             <img src="post.png" alt="Post" />
+             <div>POST</div>
+           </div>
+         <div class="nav-item">
+           <img src="chatfeed.png" alt="Chat" />
+           <div>CHAT FEED</div>
+         </div>
+         <div class="nav-item">
+           <img src="Sign-in.png" alt="profile-img" />
+           <div>PROFILE</div>
+         </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.chat-item').forEach(item => {
+      item.addEventListener('click', () => {
+        alert('Opening chat...');
+      });
+    });
+  </script>
+</body>
+</html>
