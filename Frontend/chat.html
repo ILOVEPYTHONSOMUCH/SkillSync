@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat </title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Sarabun', sans-serif;
+      background-color: #ffffff;
+      height: 100%;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    .top-bar {
+      background-color: #000e6d;
+      height: 40px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+    }
+    .back-arrow {
+      font-size: 24px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    .profile-info {
+      display: flex;
+      align-items: center;
+    }
+    .profile-pic {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: 8px;
+    }
+    .username {
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .status {
+      font-size: 12px;
+      color: gray;
+    }
+    .chat {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      overflow-y: auto;
+      margin-bottom: 120px;
+    }
+    .timestamp {
+      text-align: center;
+      font-size: 13px;
+      color: #444;
+      margin: 12px 0;
+    }
+    .message-row {
+      display: flex;
+      margin: 6px 0;
+    }
+    .left .message-box,
+    .right .message-box {
+      border-radius: 20px;
+      padding: 8px 14px;
+      max-width: 85vw;
+      width: fit-content;
+    }
+    .left .message-box {
+      background: #f0f0f0;
+      color: black;
+    }
+    .right {
+      justify-content: flex-end;
+    }
+    .right .message-box {
+      background: #c980f3;
+      color: white;
+    }
+    .with-profile {
+      display: flex;
+      align-items: flex-start;
+    }
+    .with-profile .profile-pic {
+      margin-right: 6px;
+      width: 28px;
+      height: 28px;
+    }
+    .file-box {
+      background: #f0f0f0;
+      color: #a30000;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+      max-width: 60%;
+      margin-top: 6px;
+    }
+    .input-area {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      position: fixed;
+      bottom: 50px;
+      left: 0;
+      width: 100%;
+      background-color: #fff;
+    }
+    .input-area input {
+      flex-grow: 1;
+      padding: 10px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      transition: all 0.2s ease-in-out;
+    }
+    .input-area input:focus {
+      outline: none;
+      transform: scale(1.05);
+      background-color: #dfffdf;
+    }
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar"></div>
+  <div class="header">
+    <div class="back-arrow">◀</div>
+    <div class="profile-info">
+      <img src="Sign-in.png" class="profile-pic">
+      <div>
+        <div class="username">napgains</div>
+        <div class="status">กำลังใช้งาน.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="timestamp">21:00</div>
+
+    <div class="message-row left with-profile">
+      <img src="Sign-in.png" class="profile-pic">
+      <div class="message-box">ฮัสซานน พอมีสรุปฟิสิกส์มั้ยย</div>
+    </div>
+    <div class="message-row left with-profile">
+      <img src="Sign-in.png" class="profile-pic">
+      <div class="message-box">โอเค ขอบคุณมากเลยนะ ช่วงนี้เราคิดว่าฟิสิกส์น่าจะยากขึ้น มีสูตรการคิดที่เยอะ และต้องเข้าใจ เผื่อได้สรุปดีๆไปอ่าน อาจจะเข้าใจมากขึ้นน</div>
+    </div>
+
+    <div class="message-row right">
+      <div class="message-box">อ๋ออ มีๆๆ แพงเอามั้ย เดะเราส่งให้ๆ</div>
+    </div>
+
+    <div class="message-row right">
+      <div class="message-box" style="background: #f0f0f0; color: black; border: 1px solid #ccc;">
+        📄 สรุปฟิสิกส์ ม.5 .pdf<br>ขนาด 92 MB.
+      </div>
+    </div>
+
+    <div class="message-row right">
+      <div class="message-box">แพงลองอ่านสรุปดูนะ ตอนแรกเราก็ไม่เข้าใจเหมือนแพงเลย พอเจอสรุปนี้มา อ่านแล้วเข้าใจเลย</div>
+    </div>
+    <div class="message-row right">
+      <div class="message-box">แพงลองอ่าน แล้วลองทำโจทย์ดูนะๆ แพงทำได้ สู้ๆๆ</div>
+    </div>
+
+    <div class="message-row left with-profile">
+      <img src="Sign-in.png" class="profile-pic">
+      <div class="message-box">ขอบคุณมากเลยนะฮัสซานน</div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <input type="text" placeholder="ส่งข้อความ....">
+  </div>
+  <div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+</body>
+</html>
