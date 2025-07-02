@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Arial', sans-serif;
+    }
+
+    body {
+      background-color: #f4f4f4;
+    }
+
+    header {
+      background-color: #0b0c5c;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .top-controls {
+      background-color: white;
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .left-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .left-controls h1 {
+      font-size: 24px;
+      font-weight: bold;
+      color: #000;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+    }
+
+    .search-box input {
+      padding: 6px 10px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      outline: none;
+      width: 160px;
+    }
+
+    .search-box span {
+      margin-left: 5px;
+      color: black;
+    }
+
+    .my-result-btn {
+      background-color: #0b0c5c;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      transform: scale(1);
+    }
+
+    .my-result-btn:hover {
+      background-color: #000042;
+      transform: scale(1.05) rotate(-1deg);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .logo {
+      width: 60px;
+    }
+
+    .container {
+      padding: 15px;
+    }
+
+    .quiz-card {
+      background-color: #fff;
+      border-radius: 15px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      margin-bottom: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .quiz-card:hover {
+      transform: scale(1.03);
+    }
+
+    .quiz-card h2 {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    .quiz-card.red { border-left: 8px solid #9c2c2c; }
+    .quiz-card.blue { background-color: #dff2fd; border-left: 8px solid #1458a8; }
+    .quiz-card.orange { border-left: 8px solid #d07b00; }
+
+    .quiz-card p {
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+
+    .start-btn {
+      margin-top: 10px;
+      background-color: #8e2e2e;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .quiz-card.blue .start-btn {
+      background-color: #1c59c4;
+    }
+
+    .start-btn:hover {
+      background-color: #000;
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+
+  </style>
+</head>
+<body>
+  <header></header>
+
+  <div class="top-controls">
+    <div class="left-controls">
+      <h1>Quiz</h1>
+      <div class="search-box">
+        <input type="text" placeholder="Searching Quiz">
+        <span>🔍</span>
+      </div>
+      <button class="my-result-btn">My Quiz Result</button>
+    </div>
+    <img src="SkillSyncLogo.png" class="logo" alt="logo">
+  </div>
+
+  <div class="container">
+    <div class="quiz-card red">
+      <h2 style="color: red;">Math</h2>
+      <p>Lesson: Trigonometry (Multiple choice Questions) 30 Questions.</p>
+      <p>Time: 1 hr 30 min</p>
+      <p>Points: 30 points</p>
+      <p>Creator: Cheearawit Keerati</p>
+      <button class="start-btn">Start the Quiz</button>
+    </div>
+
+    <div class="quiz-card blue">
+      <h2 style="color: #0066cc;">Physics</h2>
+      <p>Lesson: Wave & Simple Harmonic Motions (Multiple Choice Questions) 30 Questions.</p>
+      <p>Time: 1 hr</p>
+      <p>Creator: Thorfun N.</p>
+      <button class="start-btn">Start the Quiz</button>
+    </div>
+
+    <div class="quiz-card orange">
+      <h2 style="color: #ff6600;">English</h2>
+      <p>Lesson: Present Continuous Tense (Written Exam) 15 Questions.</p>
+      <p>Time: 30 min</p>
+      <p>Point: 10 points</p>
+      <p>Creator: Punyawee S.</p>
+      <button class="start-btn">Start the Quiz</button>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+  </div>
+</body>
+</html>
