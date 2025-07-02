@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create a Quiz</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background-color: #ffffff;
+      color: #001158;
+    }
+
+    .header {
+      background-color: #000E5A;
+      height: 60px;
+    }
+
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    .container {
+      padding: 16px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 8px;
+    }
+
+    .btn-subject, .cover-pic {
+      width: auto;
+      min-width: 120px;
+      height: 40px;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .btn-subject {
+      background-color: red;
+    }
+
+    .btn-subject:hover {
+      background-color: #cc0000;
+      transform: scale(1.05);
+    }
+
+    .cover-pic {
+      background-color: #b255f5;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cover-pic:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .cover-pic::after {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+    }
+
+    .label {
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      transition: all 0.3s ease;
+    }
+
+    input[type="text"]:focus, textarea:focus {
+      transform: scale(1.05);
+      border-color: #000E5A;
+      outline: none;
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .choice-box {
+      background: #e4e4e4;
+      padding: 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      text-align: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+
+    .choice-box:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      background-color: #d8eaff;
+    }
+
+    .add-choice {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .add-choice img {
+      width: 24px;
+      margin-right: 8px;
+    }
+
+    .correct-answer {
+      margin-top: 24px;
+    }
+
+    .dropdown {
+      background: #dcdcdc;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+
+    .create-btn {
+      background-color: #0044aa;
+      color: white;
+      padding: 12px 20px;
+      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="header"></div>
+
+  <div class="container">
+    <div class="top-header">
+      <div class="title">Create a quiz</div>
+      <button class="create-btn">Create</button>
+    </div>
+
+    <div class="row">
+      <button class="btn-subject">Choose Subject</button>
+      <div class="cover-pic">Cover Picture</div>
+    </div>
+
+    <div>
+      <div class="label">Topic :</div>
+      <input type="text" placeholder="Enter topic">
+
+      <div class="label">Question :</div>
+      <textarea rows="3" placeholder="Enter your question"></textarea>
+    </div>
+
+    <div class="label">Choices <span style="font-weight: normal; font-size: 14px;">( You can add more choice if you want)</span></div>
+    <div class="choices">
+      <div class="choice-box">A.</div>
+      <div class="choice-box">B.</div>
+      <div class="choice-box">C.</div>
+    </div>
+    <div class="add-choice">
+      <img src="https://img.icons8.com/ios-glyphs/30/plus-math.png" alt="Add"> Add more choices
+    </div>
+
+    <div class="correct-answer">
+      <div class="label">The correct answer <br><span style="font-size: 14px; font-weight: normal;">(Won't be show on the quiz before done)</span></div>
+      <div class="dropdown">Choose the correct choice ▼</div>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+</div>
+</body>
+</html>
