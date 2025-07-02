@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Quiz Result</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f0f2f5;
+      color: #000;
+    }
+    header {
+      background-color: #06116b;
+      height: 80px;
+    }
+    .container {
+      padding: 10px;
+    }
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: -50px;
+      padding: 0 10px;
+    }
+    .quiz-title {
+      font-weight: bold;
+      font-size: 24px;
+    }
+    .logo {
+      height: 40px;
+    }
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin: 10px 0;
+    }
+    .profile img {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+    }
+    .section-title {
+      background-color: #004aad;
+      color: white;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    .subject-box {
+      border-radius: 15px;
+      padding: 15px;
+      margin-bottom: 15px;
+      transition: transform 0.2s ease-in-out;
+    }
+    .subject-box:hover {
+      transform: scale(1.03);
+    }
+    .math { background-color: #28d28d; }
+    .english { background-color: #c5dadd; }
+    .physics { background-color: #372fd0; color: white; }
+    .subject-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+    }
+    .details-button {
+      padding: 5px 15px;
+      border-radius: 20px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .math .details-button { background-color: #d62828; color: white; }
+    .english .details-button { background-color: #fff4a3; }
+    .physics .details-button { background-color: #c9c9e3; }
+    .ai-section {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      align-items: flex-start;
+    }
+    .ai-icon {
+      font-size: 20px;
+      font-weight: bold;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background: #fff;
+    }
+    .footer {
+      text-align: center;
+      
+      font-weight: bold;
+    }
+    
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+
+    .arrow {
+        display: block;
+      margin-left: auto;
+      margin-right: auto;
+      width: 30px;
+    }
+  </style>
+</head>
+<body>
+  <header></header>
+  
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 0 20px;">
+  <div class="quiz-title" style="font-weight: bold; font-size: 24px;">My Quiz Result</div>
+  <img class="logo" src="SkillSyncLogo.png" alt="Logo" style="height: 40px;">
+</div>
+  
+</div>
+</div>
+    </div>
+    <div class="container">
+    <div class="profile">
+      <img src="Sign-in.png" alt="Profile">
+      <div>
+        <h3>Cheerawit Keerati</h3>
+        <p>Test taken : 30th June 2025</p>
+      </div>
+    </div>
+
+    <div class="section-title">Overall Score (In each Subjects)</div>
+
+    <div class="subject-box math">
+      <div class="subject-header">
+        <span>Math : 8/10 (GOOD)</span>
+        <button class="details-button">Click for details</button>
+      </div>
+      <div class="ai-section">
+        <div class="ai-icon">AI</div>
+        <p>You should review more on parts calculation of equations and you would be get a perfect score!!</p>
+      </div>
+    </div>
+
+    <div class="subject-box english">
+      <div class="subject-header">
+        <span>English : 10/10 (Well done)</span>
+        <button class="details-button">Click for details</button>
+      </div>
+      <div class="ai-section">
+        <div class="ai-icon">AI</div>
+        <p>Keep doing well and reviewing your lessons continuously to make it even better. Good Job.</p>
+      </div>
+    </div>
+
+    <div class="subject-box physics">
+      <div class="subject-header">
+        <span>Physics : 5/10 (Moderate)</span>
+        <button class="details-button">Click for details</button>
+      </div>
+      <div class="ai-section">
+        <div class="ai-icon">AI</div>
+        <p>You should improve more on part of calculation by use formula of movement, it might be a lot of calculation, but I hope if you review it more, you can do it.</p>
+      </div>
+    </div>
+    <div class="nav-bar">
+        <div class="nav-item">
+            <img src="home.png" alt="Home" />
+            <div>HOME</div>
+         </div>
+         <div class="nav-item">      
+           <img src="quiz.png" alt="Quiz" />
+           <div>QUIZ</div>
+         </div>
+         <div class="nav-item">
+           <img src="lesson.png" alt="Lesson" />
+           <div>LESSON</div>
+         </div>
+         <div class="nav-item">
+             <img src="post.png" alt="Post" />
+             <div>POST</div>
+           </div>
+         <div class="nav-item">
+           <img src="chatfeed.png" alt="Chat" />
+           <div>CHAT FEED</div>
+         </div>
+         <div class="nav-item">
+           <img src="Sign-in.png" alt="profile-img" />
+           <div>PROFILE</div>
+         </div>
+        </div>
+    <div class="footer">View More</div>
+    <img class="arrow" src="arrow.png" alt="arrow">
+  </div>
+</body>
+</html>
