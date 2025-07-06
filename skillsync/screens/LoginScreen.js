@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// LoginScreen.js
+
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,29 +9,54 @@ import {
   TouchableWithoutFeedback,
   Image,
   Animated,
-  Pressable,
+  Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function LoginScreen() {
-  const [pressed, setPressed] = useState(false);
-  const scaleAnim = new Animated.Value(1);
+const BASE_URL = 'http://192.168.41.31:6000/api/auth';
 
-  const handlePress = () => {
-    setPressed(true);
+export default function LoginScreen({ navigation }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [identifier, setIdentifier] = useState(''); // username or email
+  const [password, setPassword]     = useState('');
+
+  const handlePress = async () => {
+    // button press animation
     Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 1.1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      alert('Login clicked! Add your logic here.');
-      setPressed(false);
+      Animated.timing(scaleAnim, { toValue: 1.1, duration: 150, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1.0, duration: 150, useNativeDriver: true }),
+    ]).start(async () => {
+      // validate inputs
+      if (!identifier || !password) {
+        return Alert.alert('Error', 'กรุณากรอก Username/Email และ Password');
+      }
+
+      try {
+        // call login API
+        const res = await fetch(`${BASE_URL}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier, password }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.message || 'Login failed');
+        }
+
+        // save token
+        await AsyncStorage.setItem('userToken', json.token);
+        console.log('Token saved:', json.token);
+
+        // navigate to Home (reset stack so user cannot go back)
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      } catch (err) {
+        console.error(err);
+        Alert.alert('Login Error', err.message);
+      }
     });
   };
 
@@ -37,20 +64,30 @@ export default function LoginScreen() {
     <View style={styles.body}>
       <View style={styles.header} />
       <View style={styles.container}>
-        <View />
-        <Image style={styles.avatar} source={require('../assets/signin.jpg')}></Image>
+        <Image style={styles.avatar} source={require('../assets/Sign-in.png')} />
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Username</Text>
-          <TextInput style={styles.input} />
+          <Text style={styles.label}>Username or Email</Text>
+          <TextInput
+            style={styles.input}
+            value={identifier}
+            onChangeText={setIdentifier}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
         </View>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Password</Text>
-          <TextInput style={styles.input} secureTextEntry />
+          <TextInput
+            style={styles.input}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
         </View>
 
         <TouchableWithoutFeedback onPress={handlePress}>
           <Animated.View style={[styles.button, { transform: [{ scale: scaleAnim }] }]}>
-            <Text style={styles.buttonText}>Sign in</Text>
+            <Text style={styles.buttonText}>Sign In</Text>
           </Animated.View>
         </TouchableWithoutFeedback>
       </View>
