@@ -1,35 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, Image,
-  TouchableOpacity, ScrollView, Alert, ActivityIndicator
+  TouchableOpacity, ScrollView, Alert, ActivityIndicator,
+  Dimensions, Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import Slider from '@react-native-community/slider';
+import { useNavigation } from '@react-navigation/native';
 
 const API_BASE = 'http://192.168.41.31:6000';
+const { width } = Dimensions.get('window');
+const SUBJECTS = ['Math','Physics','Chemistry','Biology','Social','History'];
 
-function getFileUrl(diskPath) {
-  if (!diskPath) return null;
-  const encoded = encodeURIComponent(diskPath.replace(/\\/g, '/'));
-  return `${API_BASE}/api/file?path=${encoded}`;
-}
-
-const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History'];
-
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen() {
+  const navigation = useNavigation();
   const [profile, setProfile] = useState({
-    username: '', email: '', grade: 7,
-    strengths: '', weaknesses: '',
-    avatar: null, password: '', confirm: ''
+    username:'', email:'', grade:7,
+    strengths:'', weaknesses:'',
+    avatar:null, password:'', confirm:''
   });
   const [avatarFile, setAvatarFile] = useState(null);
   const [postCount, setPostCount] = useState(0);
   const [points, setPoints] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [showPass, setShowPass] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading,setLoading] = useState(true);
+  const [showPass,setShowPass] = useState(false);
+  const [showConfirm,setShowConfirm] = useState(false);
+
+  // Build fileRoute URL from a server‑stored relative path
+  const fileUrlFrom = relPath => {
+    if (!relPath) return null;
+    const p = relPath.replace(/\\/g,'/');
+    return `${API_BASE}/api/file?path=${encodeURIComponent(p)}`;
+  };
 
   useEffect(() => {
     (async () => {
@@ -39,233 +43,278 @@ export default function ProfileScreen({ navigation }) {
         const res = await fetch(`${API_BASE}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        if (!res.ok) throw new Error();
         const user = await res.json();
         setProfile({
-          ...profile,
-          username: user.username,
-          email: user.email,
-          grade: Number(user.grade || 7),
-          strengths: (user.skills?.strengths || [])[0] || '',
-          weaknesses: (user.skills?.weaknesses || [])[0] || '',
-          avatar: user.avatar
+          username:   user.username,
+          email:      user.email,
+          grade:      Number(user.grade) || 7,
+          strengths:  (user.skills?.strengths || [''])[0],
+          weaknesses: (user.skills?.weaknesses || [''])[0],
+          avatar:     user.avatar,
+          password:   '',
+          confirm:    ''
         });
         setPostCount(user.totalPosts || 0);
         setPoints(user.totalScore || 0);
       } catch (e) {
-        Alert.alert('Error', 'Failed to load profile');
+        Alert.alert('Error','Failed to load profile');
         console.error(e);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [navigation]);
 
+  // Pick a new avatar
   const pickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      return Alert.alert('Permission required','Need photo library access.');
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7
+      quality: 0.7,
     });
     if (!result.cancelled) {
-      setAvatarFile(result);
-      setProfile({ ...profile, avatar: result.uri });
+      // For SDK40+: result.uri; older: result.assets[0].uri
+      const uri = result.uri || result.assets?.[0]?.uri;
+      if (!uri) return;
+      const name = uri.split('/').pop();
+      // Try infer mime type
+      const match = /\.(\w+)$/.exec(name);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      setAvatarFile({ uri, name, type });
     }
   };
 
+  // Save profile (including new avatar if selected)
   const onSave = async () => {
     if (profile.password && profile.password !== profile.confirm) {
-      return Alert.alert('Error', 'Passwords do not match');
+      return Alert.alert('Error','Passwords do not match');
     }
     const token = await AsyncStorage.getItem('userToken');
+    if (!token) return Alert.alert('Error','Not authenticated');
+
     const form = new FormData();
     form.append('username', profile.username);
-    form.append('grade', profile.grade);
-    form.append('skills.strengths', profile.strengths);
-    form.append('skills.weaknesses', profile.weaknesses);
+    form.append('grade', String(profile.grade));
+    form.append('skills', JSON.stringify({
+      strengths:[profile.strengths],
+      weaknesses:[profile.weaknesses]
+    }));
     if (profile.password) form.append('password', profile.password);
     if (avatarFile) {
+      // Field name must match multer.single('avatar')
       form.append('avatar', {
-        uri: avatarFile.uri,
-        name: 'avatar.jpg',
-        type: 'image/jpeg'
+        uri:   avatarFile.uri,
+        name:  avatarFile.name,
+        type:  avatarFile.type
       });
     }
+
     try {
       const res = await fetch(`${API_BASE}/api/auth/profile`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+          // NOTE: Do NOT set Content-Type — let fetch infer the multipart boundary
         },
         body: form
       });
       if (!res.ok) {
         const text = await res.text();
-        return Alert.alert('Error', text);
+        throw new Error(text || 'Update failed');
       }
-      Alert.alert('Success', 'Profile updated');
-      setProfile({ ...profile, password: '', confirm: '' });
+      const updated = await res.json();
+      Alert.alert('Success','Profile updated');
+      setProfile(p => ({
+        ...p,
+        password: '',
+        confirm: '',
+        avatar:  updated.avatar
+      }));
+      setAvatarFile(null);
     } catch (e) {
-      Alert.alert('Error', 'Save failed');
       console.error(e);
+      Alert.alert('Error', e.message);
     }
   };
 
   if (loading) {
     return (
-      <View style={s.center}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color="#000066" />
       </View>
     );
   }
 
   return (
-    <View style={s.container}>
-      <View style={s.topBar}>
-        <Image source={require('../assets/SkillSyncLogo.png')} style={s.logo} />
+    <View style={styles.container}>
+      <View style={styles.topBar}>
+        <Image source={require('../assets/SkillSyncLogo.png')} style={styles.logo}/>
       </View>
-
-      <ScrollView contentContainerStyle={s.body}>
-        <View style={s.profileSection}>
-          <TouchableOpacity onPress={pickAvatar} style={s.avatarWrapper}>
+      <ScrollView contentContainerStyle={styles.body}>
+        <View style={styles.profileSection}>
+          <TouchableOpacity onPress={pickAvatar} style={styles.avatarWrapper}>
             <Image
               source={
-                profile.avatar
-                  ? { uri: getFileUrl(profile.avatar) }
-                  : require('../assets/Sign-in.png')
+                avatarFile
+                  // show local preview if newly picked
+                  ? { uri: avatarFile.uri }
+                  // otherwise show existing server avatar
+                  : profile.avatar
+                    ? { uri: fileUrlFrom(profile.avatar) }
+                    : require('../assets/Sign-in.png')
               }
-              style={s.profilePic}
+              style={styles.profilePic}
             />
-            <View style={s.plus}><Text style={s.plusText}>+</Text></View>
+            <View style={styles.plus}><Text style={styles.plusText}>+</Text></View>
           </TouchableOpacity>
-
-          <View style={s.overlay}>
-            <Text style={s.name}>{profile.username}</Text>
-            <View style={s.postPoint}>
+          <View style={styles.overlay}>
+            <Text style={styles.name}>{profile.username}</Text>
+            <View style={styles.postPoint}>
               <Text>{postCount} Posts</Text>
               <Text>{points} Points</Text>
             </View>
           </View>
         </View>
 
-        <View style={s.actionRow}>
-          <TouchableOpacity style={s.accountBtn}><Text style={s.btnText}>Your Account</Text></TouchableOpacity>
-          <TouchableOpacity style={s.saveBtn} onPress={onSave}><Text style={s.btnText}>Save</Text></TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.accountBtn}>
+            <Text style={styles.btnText}>Your Account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.saveBtn} onPress={onSave}>
+            <Text style={styles.btnText}>Save</Text>
+          </TouchableOpacity>
         </View>
 
-        <LabelledInput label="Name" value={profile.username} onChange={v => setProfile({ ...profile, username: v })} />
-        <LabelledInput label="Account Name" value={profile.email} editable={false} />
-
-        <LabelledInput
-          label="Password" value={profile.password} onChange={v => setProfile({ ...profile, password: v })}
+        <LabelledInput label="Name"
+          value={profile.username}
+          onChange={v => setProfile(p => ({ ...p, username: v }))}
+        />
+        <LabelledInput label="Account Name"
+          value={profile.email}
+          editable={false}
+        />
+        <LabelledInput label="Password"
           secure={!showPass}
-          icon={showPass ? '🙈' : '👁️'} onIconPress={() => setShowPass(!showPass)}
+          icon={showPass ? '🙈' : '👁️'}
+          onIconPress={() => setShowPass(f => !f)}
+          value={profile.password}
+          onChange={v => setProfile(p => ({ ...p, password: v }))}
         />
-        <LabelledInput
-          label="Confirm Password" value={profile.confirm} onChange={v => setProfile({ ...profile, confirm: v })}
+        <LabelledInput label="Confirm Password"
           secure={!showConfirm}
-          icon={showConfirm ? '🙈' : '👁️'} onIconPress={() => setShowConfirm(!showConfirm)}
+          icon={showConfirm ? '🙈' : '👁️'}
+          onIconPress={() => setShowConfirm(f => !f)}
+          value={profile.confirm}
+          onChange={v => setProfile(p => ({ ...p, confirm: v }))}
         />
 
-        <Text style={s.label}>I'm good on subject:</Text>
+        <Text style={styles.label}>I'm good on subject:</Text>
         <Picker
           selectedValue={profile.strengths}
-          onValueChange={v => setProfile({ ...profile, strengths: v })}
-          style={s.picker}
+          onValueChange={v => setProfile(p => ({ ...p, strengths: v }))}
+          style={styles.picker}
         >
-          {SUBJECTS.map(sub => <Picker.Item label={sub} value={sub} key={sub} />)}
+          {SUBJECTS.map(s => <Picker.Item label={s} value={s} key={s} />)}
         </Picker>
 
-        <Text style={s.label}>I'm not good on subject:</Text>
+        <Text style={styles.label}>I'm not good on subject:</Text>
         <Picker
           selectedValue={profile.weaknesses}
-          onValueChange={v => setProfile({ ...profile, weaknesses: v })}
-          style={s.picker}
+          onValueChange={v => setProfile(p => ({ ...p, weaknesses: v }))}
+          style={styles.picker}
         >
-          {SUBJECTS.map(sub => <Picker.Item label={sub} value={sub} key={sub} />)}
+          {SUBJECTS.map(s => <Picker.Item label={s} value={s} key={s} />)}
         </Picker>
 
-        <Text style={s.label}>Grade: {profile.grade}</Text>
+        <Text style={styles.label}>Grade: {profile.grade}</Text>
         <Slider
-          style={{ width: '100%', height: 40 }}
-          minimumValue={7}
-          maximumValue={12}
-          step={1}
-          value={Number(profile.grade)}
+          style={{ width:'100%', height:40 }}
+          minimumValue={7} maximumValue={12} step={1}
+          value={profile.grade}
           minimumTrackTintColor="#000066"
           maximumTrackTintColor="#ccc"
-          onValueChange={v => setProfile({ ...profile, grade: v })}
+          onValueChange={v => setProfile(p => ({ ...p, grade: v }))}
         />
       </ScrollView>
+
+      <View style={styles.navBar}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
+                 <Image source={require('../assets/home.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>HOME</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
+                 <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>QUIZ</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
+                 <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>LESSON</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
+                 <Image source={require('../assets/post.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>POST</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
+                 <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>CHAT</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+                 <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>PROFILE</Text>
+               </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-const LabelledInput = ({ label, value, onChange, secure, icon, onIconPress, editable = true }) => (
-  <View style={{ marginBottom: 15 }}>
-    <Text style={s.label}>{label}</Text>
-    <View style={s.inputGroup}>
+const LabelledInput = ({label,value,onChange,secure,icon,onIconPress,editable=true}) => (
+  <View style={{ marginBottom:15 }}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={styles.inputGroup}>
       <TextInput
-        style={s.input}
+        style={styles.input}
         value={value}
-        onChangeText={onChange}
         secureTextEntry={secure}
+        onChangeText={onChange}
         editable={editable}
       />
       {icon && (
         <TouchableOpacity onPress={onIconPress}>
-          <Text style={{ fontSize: 20, padding: 4 }}>{icon}</Text>
+          <Text style={{fontSize:20,padding:4}}>{icon}</Text>
         </TouchableOpacity>
       )}
     </View>
   </View>
 );
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  topBar: {
-    backgroundColor: '#000066',
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  logo: {
-    height: 30,
-    resizeMode: 'contain'
-  },
-  body: { padding: 20 },
-  profileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  avatarWrapper: { position: 'relative' },
-  profilePic: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#000' },
-  plus: {
-    position: 'absolute', bottom: -5, right: -5,
-    backgroundColor: '#fff', width: 20, height: 20, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000'
-  },
-  plusText: { fontWeight: 'bold', fontSize: 14 },
-  overlay: { marginLeft: 20 },
-  name: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-  postPoint: { flexDirection: 'row', gap: 20 },
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 20 },
-  accountBtn: {
-    backgroundColor: '#0052cc', padding: 10, borderRadius: 8, width: '48%',
-    alignItems: 'center'
-  },
-  saveBtn: {
-    backgroundColor: '#7ED321', padding: 10, borderRadius: 8, width: '48%',
-    alignItems: 'center'
-  },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  label: { fontSize: 16, color: '#003399', fontWeight: 'bold', marginBottom: 6 },
-  inputGroup: {
-    flexDirection: 'row', alignItems: 'center',
-    borderBottomWidth: 2, borderBottomColor: '#000'
-  },
-  input: {
-    flex: 1, fontSize: 16, paddingVertical: 6
-  },
-  picker: {
-    backgroundColor: '#f9f9f9',
-    marginBottom: 20
-  }
+const styles = StyleSheet.create({
+  container:{ flex:1, backgroundColor:'#fff' },
+  center:{ flex:1, justifyContent:'center', alignItems:'center' },
+  topBar:{ backgroundColor:'#000066', padding:20, alignItems:'center' },
+  logo:{ height:30, resizeMode:'contain' },
+  body:{ padding:20, paddingBottom:80 },
+  profileSection:{ flexDirection:'row', alignItems:'center', marginBottom:20 },
+  avatarWrapper:{ position:'relative' },
+  profilePic:{ width:80, height:80, borderRadius:40, borderWidth:4, borderColor:'#000' },
+  plus:{ position:'absolute', bottom:-5, right:-5, backgroundColor:'#fff', width:20, height:20, borderRadius:10, justifyContent:'center', alignItems:'center', borderWidth:2, borderColor:'#000' },
+  plusText:{ fontWeight:'bold', fontSize:14 },
+  overlay:{ marginLeft:20 },
+  name:{ fontSize:18, fontWeight:'bold', marginBottom:4 },
+  postPoint:{ flexDirection:'row', justifyContent:'space-between', width:width*0.4 },
+  actionRow:{ flexDirection:'row', justifyContent:'space-between', marginVertical:20 },
+  accountBtn:{ backgroundColor:'#0052cc', padding:10, borderRadius:8, width:'48%', alignItems:'center' },
+  saveBtn:{ backgroundColor:'#7ED321', padding:10, borderRadius:8, width:'48%', alignItems:'center' },
+  btnText:{ color:'#fff', fontWeight:'bold', fontSize:16 },
+  label:{ fontSize:16, color:'#003399', fontWeight:'bold', marginBottom:6 },
+  inputGroup:{ flexDirection:'row', alignItems:'center', borderBottomWidth:2, borderBottomColor:'#000' },
+  input:{ flex:1, fontSize:16, paddingVertical:6 },
+  picker:{ backgroundColor:'#f9f9f9', marginBottom:20 },
+  navBar:{ position:'absolute', bottom:0, left:0, right:0, height:Platform.OS==='ios'?80:60, backgroundColor:'white', borderTopWidth:1, borderTopColor:'#ccc', flexDirection:'row', justifyContent:'space-around', alignItems:'center', paddingBottom:Platform.OS==='ios'?20:0 },
+  navItem:{ alignItems:'center' },
+  navIcon:{ width:24, height:24, marginBottom:4 },
+  navText:{ fontSize:11, color:'#000d63', fontWeight:'500' }
 });

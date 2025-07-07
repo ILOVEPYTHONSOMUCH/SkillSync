@@ -1,19 +1,21 @@
 // RegisterScreen.js
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
-  Pressable,
-  Image,
   Animated,
   TouchableOpacity,
+  Image,
   Platform,
-  Alert
+  Alert,
+  KeyboardAvoidingView,
+  ScrollView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = 'http://192.168.41.31:6000/api/auth';
@@ -21,36 +23,46 @@ const BASE_URL = 'http://192.168.41.31:6000/api/auth';
 export default function RegisterScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Profile image
-  const [imageFile, setImageFile] = useState(null);
-  const [imageUri, setImageUri]   = useState(null);
+  const [imageUri, setImageUri] = useState(null);
+  const [username, setUsername] = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm]   = useState('');
+  const [grade, setGrade]       = useState(7);
 
-  // Form fields
-  const [username, setUsername]       = useState('');
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
-  const [confirmPassword, setConfirm] = useState('');
-  const [grade, setGrade]             = useState('');
-
-  const handlePickImage = async () => {
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        return Alert.alert('Permission required', 'We need access to your photos.');
+  // Request permission
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Media library access is needed to choose a profile image.');
+        }
       }
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8
-    });
-    if (!result.cancelled) {
-      setImageUri(result.uri);
-      setImageFile(result);
+    })();
+  }, []);
+
+  // Launch image library
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      // New API: if user didn't cancel, result.canceled === false
+      if (!result.canceled && result.assets?.length > 0) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.error('ImagePicker Error:', e);
+      Alert.alert('Error', 'Could not open image picker.');
     }
   };
 
+  // Handle register
   const handleCreate = async () => {
     // Button press animation
     Animated.sequence([
@@ -58,12 +70,12 @@ export default function RegisterScreen({ navigation }) {
       Animated.timing(scaleAnim, { toValue: 1.0, duration: 100, useNativeDriver: true }),
     ]).start();
 
-    // Validate
-    if (!username || !email || !password || !confirmPassword || !grade) {
-      return Alert.alert('Error', 'กรุณากรอกข้อมูลให้ครบทุกช่อง');
+    // Validation
+    if (!username || !email || !password || !confirm) {
+      return Alert.alert('Error', 'Please fill all fields.');
     }
-    if (password !== confirmPassword) {
-      return Alert.alert('Error', 'รหัสผ่านไม่ตรงกัน');
+    if (password !== confirm) {
+      return Alert.alert('Error', 'Passwords do not match.');
     }
 
     // Build FormData
@@ -71,10 +83,11 @@ export default function RegisterScreen({ navigation }) {
     form.append('username', username);
     form.append('email', email);
     form.append('password', password);
-    form.append('grade', grade);
-    if (imageFile) {
+    form.append('grade', grade.toString());
+    if (imageUri) {
+      // The field name must match multer.single('avatar')
       form.append('avatar', {
-        uri: imageFile.uri,
+        uri: imageUri,
         name: 'avatar.jpg',
         type: 'image/jpeg'
       });
@@ -83,8 +96,10 @@ export default function RegisterScreen({ navigation }) {
     try {
       const res = await fetch(`${BASE_URL}/register`, {
         method: 'POST',
+        // **Do not set Content-Type manually**: let fetch add the correct boundary header
         body: form
       });
+
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.error || json.message || 'Registration failed');
@@ -92,13 +107,7 @@ export default function RegisterScreen({ navigation }) {
 
       // Save token and navigate
       await AsyncStorage.setItem('userToken', json.token);
-      console.log('Token saved:', json.token);
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (err) {
       console.error(err);
       Alert.alert('Error', err.message);
@@ -106,15 +115,20 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.body}>
-      <View style={styles.header} />
-      <View style={styles.container}>
-        <TouchableOpacity style={styles.profileSection} onPress={handlePickImage}>
+    <KeyboardAvoidingView
+      style={styles.body}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header} />
+
+        {/* Avatar picker */}
+        <TouchableOpacity onPress={pickImage} style={styles.profileSection}>
           <Image
             source={imageUri ? { uri: imageUri } : require('../assets/Sign-in.png')}
             style={styles.profileImage}
           />
-          <Text style={styles.addProfileText}>Tap to add your Profile</Text>
+          <Text style={styles.addProfileText}>Tap to add Profile Image</Text>
         </TouchableOpacity>
 
         {/* Username */}
@@ -145,9 +159,9 @@ export default function RegisterScreen({ navigation }) {
           <Text style={styles.label}>Password</Text>
           <TextInput
             style={styles.input}
+            secureTextEntry
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
           />
         </View>
 
@@ -156,52 +170,58 @@ export default function RegisterScreen({ navigation }) {
           <Text style={styles.label}>Confirm Password</Text>
           <TextInput
             style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirm}
             secureTextEntry
+            value={confirm}
+            onChangeText={setConfirm}
           />
         </View>
 
-        {/* Grade */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Grade</Text>
-          <TextInput
-            style={styles.input}
+        {/* Grade slider */}
+        <View style={styles.sliderGroup}>
+          <Text style={styles.label}>Grade: {grade}</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={7}
+            maximumValue={12}
+            step={1}
             value={grade}
-            onChangeText={setGrade}
+            onValueChange={setGrade}
+            minimumTrackTintColor="#000066"
+            maximumTrackTintColor="#ccc"
+            thumbTintColor="#000066"
           />
         </View>
 
-        <Pressable onPress={handleCreate}>
+        {/* Create Account */}
+        <TouchableOpacity onPress={handleCreate}>
           <Animated.View style={[styles.button, { transform: [{ scale: scaleAnim }] }]}>
             <Text style={styles.buttonText}>Create Account</Text>
           </Animated.View>
-        </Pressable>
-      </View>
+        </TouchableOpacity>
 
-      <Image
-        source={require('../assets/SkillSyncLogo.png')}
-        style={styles.footerLogo}
-        resizeMode="contain"
-      />
-    </View>
+        {/* Footer logo */}
+        <Image
+          source={require('../assets/SkillSyncLogo.png')}
+          style={styles.footerLogo}
+          resizeMode="contain"
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, backgroundColor: '#fff', alignItems: 'center' },
-  header: { width: '100%', height: 40, backgroundColor: '#000D59' },
-  container: { flex: 1, width: '100%', padding: 20, alignItems: 'center' },
+  body: { flex: 1, backgroundColor: '#fff' },
+  header: { height: 40, backgroundColor: '#000D59', width: '100%' },
+  container: { padding: 20, alignItems: 'center' },
   profileSection: { alignItems: 'center', marginVertical: 20 },
-  profileImage: {
-    width: 100, height: 100, borderRadius: 50, backgroundColor: '#ccc',
-  },
-  addProfileText: { marginTop: 5, fontSize: 14 },
+  profileImage: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#ccc' },
+  addProfileText: { marginTop: 5, fontSize: 14, color: '#666' },
   inputGroup: { width: '80%', maxWidth: 300, marginBottom: 15 },
   label: { fontSize: 16, marginBottom: 5 },
-  input: {
-    backgroundColor: '#B7C2C1', borderRadius: 12, padding: 10, fontSize: 16,
-  },
+  input: { backgroundColor: '#B7C2C1', borderRadius: 12, padding: 10, fontSize: 16 },
+  sliderGroup: { width: '80%', marginVertical: 20 },
+  slider: { width: '100%', height: 40 },
   button: {
     backgroundColor: '#A6E7F6',
     borderWidth: 2,
@@ -216,8 +236,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
   },
-  buttonText: { fontSize: 18, fontWeight: '600' },
-  footerLogo: {
-    width: 50, height: 50, position: 'absolute', right: 10, bottom: 10,
-  },
+  buttonText: { fontSize: 18, fontWeight: '600', color: '#000' },
+  footerLogo: { width: 50, height: 50, position: 'absolute', right: 10, bottom: 10 },
 });
