@@ -1,38 +1,50 @@
 // CreatePost.js
 import React, { useState, useEffect } from 'react';
 import Slider from '@react-native-community/slider';
-
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  Image, ScrollView, Alert
+  Image, ScrollView, Alert, FlatList
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
 
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://10.56.138.58:6000';
+
+const subjects = [
+  'Physics','Chemistry','Biology',
+  'Math','English','History',
+  'Geography','Computer','Art'
+];
+
+const Tag = ({ label, selected, onPress }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[styles.tag, selected && styles.tagSelected]}
+  >
+    <Text style={[styles.tagText, selected && styles.tagTextSelected]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
 
 const CreatePost = ({ navigation }) => {
-  const [topic, setTopic] = useState('');
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [strengths, setStrengths] = useState('');
-  const [weaknesses, setWeaknesses] = useState('');
+  const [teachSubjects, setTeachSubjects] = useState([]);
+  const [learnSubjects, setLearnSubjects] = useState([]);
   const [avatar, setAvatar] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [grade, setGrade] = useState(7);
-
-  const subjects = [
-    '', 'Physics', 'Chemistry', 'Biology',
-    'Math', 'English', 'History', 'Geography', 'Computer', 'Art'
-  ];
 
   useEffect(() => {
     (async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
+        if (!token) return;
         const res = await fetch(`${API_BASE}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!res.ok) throw new Error('Failed to fetch user');
         const user = await res.json();
         setAvatar(user.avatar);
       } catch (err) {
@@ -40,6 +52,22 @@ const CreatePost = ({ navigation }) => {
       }
     })();
   }, []);
+
+  const toggleTeach = subj => {
+    setTeachSubjects(prev =>
+      prev.includes(subj)
+        ? prev.filter(s => s !== subj)
+        : [...prev, subj]
+    );
+  };
+
+  const toggleLearn = subj => {
+    setLearnSubjects(prev =>
+      prev.includes(subj)
+        ? prev.filter(s => s !== subj)
+        : [...prev, subj]
+    );
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -52,19 +80,24 @@ const CreatePost = ({ navigation }) => {
   };
 
   const handlePost = async () => {
-    if (!topic || !description) {
-      Alert.alert('Validation', 'Topic and Description are required.');
+    if (!title.trim() || !description.trim()) {
+      Alert.alert('Validation', 'Title and description are required.');
       return;
     }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const formData = new FormData();
+      if (!token) {
+        Alert.alert('Error', 'Not authenticated');
+        return;
+      }
 
-      formData.append('topic', topic);
+      const formData = new FormData();
+      formData.append('title', title);
       formData.append('description', description);
-      formData.append('strengths', strengths);
-      formData.append('weaknesses', weaknesses);
-      formData.append('grade', grade);
+      formData.append('teachSubjects', JSON.stringify(teachSubjects));
+      formData.append('learnSubjects', JSON.stringify(learnSubjects));
+      formData.append('grade', grade.toString());
 
       if (imageFile) {
         formData.append('image', {
@@ -83,7 +116,10 @@ const CreatePost = ({ navigation }) => {
         body: formData,
       });
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || 'Server error');
+      }
 
       Alert.alert('Success', 'Post created!');
       navigation.goBack();
@@ -97,17 +133,21 @@ const CreatePost = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.editor}>
         <View style={styles.userRow}>
           <Image
-            source={avatar ? { uri: `${API_BASE}/api/file?path=${encodeURIComponent(avatar.replace(/\\/g, '/'))}` } : require('../assets/Sign-in.png')}
+            source={
+              avatar
+                ? { uri: `${API_BASE}/api/file?path=${encodeURIComponent(avatar.replace(/\\/g, '/'))}` }
+                : require('../assets/Sign-in.png')
+            }
             style={styles.avatar}
           />
         </View>
 
-        <Text style={styles.label}>Topic:</Text>
+        <Text style={styles.label}>Title:</Text>
         <TextInput
-          value={topic}
-          onChangeText={setTopic}
+          value={title}
+          onChangeText={setTitle}
           style={styles.inputLine}
-          placeholder="Enter topic"
+          placeholder="Enter title"
         />
 
         <Text style={styles.label}>Description:</Text>
@@ -120,82 +160,93 @@ const CreatePost = ({ navigation }) => {
         />
 
         <TouchableOpacity onPress={pickImage} style={styles.imageBtn}>
-          <Text style={styles.imageBtnText}>📸 Add Image from Gallery</Text>
+          <Text style={styles.imageBtnText}>📸 Add Image</Text>
         </TouchableOpacity>
         {imageFile && (
           <Image source={{ uri: imageFile.uri }} style={styles.previewImage} />
         )}
 
-        <Text style={styles.label}>I’m good on subject:</Text>
-        <Picker
-          selectedValue={strengths}
-          onValueChange={setStrengths}
-          style={styles.picker}
-        >
-          {subjects.map((subj, idx) => (
-            <Picker.Item key={idx} label={subj || 'Select Subject'} value={subj} />
-          ))}
-        </Picker>
+        <Text style={styles.label}>I’m good on subjects:</Text>
+        <FlatList
+          data={subjects}
+          keyExtractor={item => item}
+          horizontal
+          contentContainerStyle={styles.tagList}
+          renderItem={({ item }) => (
+            <Tag
+              label={item}
+              selected={teachSubjects.includes(item)}
+              onPress={() => toggleTeach(item)}
+            />
+          )}
+        />
 
-        <Text style={styles.label}>I’m not good on subject:</Text>
-        <Picker
-          selectedValue={weaknesses}
-          onValueChange={setWeaknesses}
-          style={styles.picker}
-        >
-          {subjects.map((subj, idx) => (
-            <Picker.Item key={idx} label={subj || 'Select Subject'} value={subj} />
-          ))}
-        </Picker>
+        <Text style={styles.label}>I’m not good on subjects:</Text>
+        <FlatList
+          data={subjects}
+          keyExtractor={item => item}
+          horizontal
+          contentContainerStyle={styles.tagList}
+          renderItem={({ item }) => (
+            <Tag
+              label={item}
+              selected={learnSubjects.includes(item)}
+              onPress={() => toggleLearn(item)}
+            />
+          )}
+        />
+
         <Text style={styles.label}>Grade: {grade}</Text>
         <Slider
-        style={{ width: '100%', height: 40 }}
-        minimumValue={7}
-        maximumValue={12}
-        step={1}
-        minimumTrackTintColor="#1565c0"
-        maximumTrackTintColor="#ccc"
-        thumbTintColor="#1565c0"
-        value={grade}
-        onValueChange={setGrade}
-        />  
-        {/* Bottom action buttons */}
+          style={{ width: '100%', height: 40 }}
+          minimumValue={7}
+          maximumValue={12}
+          step={1}
+          value={grade}
+          onValueChange={setGrade}
+        />
+
         <View style={styles.bottomButtons}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.actionBtn, styles.cancelBtn]}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.actionBtn, styles.cancelBtn]}
+          >
             <Text style={styles.actionBtnText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handlePost} style={[styles.actionBtn, styles.postBtn]}>
+          <TouchableOpacity
+            onPress={handlePost}
+            style={[styles.actionBtn, styles.postBtn]}
+          >
             <Text style={styles.actionBtnText}>Post</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Footer Navbar */}
       <View style={styles.footerNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-          <Image source={require('../assets/home.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>HOME</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
-          <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>QUIZ</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
-          <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>LESSON</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
-          <Image source={require('../assets/post.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>POST</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
-          <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>CHAT</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-          <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>PROFILE</Text>
-        </TouchableOpacity>
+       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
+                 <Image source={require('../assets/home.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>HOME</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
+                 <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>QUIZ</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
+                 <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>LESSON</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
+                 <Image source={require('../assets/post.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>POST</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
+                 <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>CHAT</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+                 <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
+                 <Text style={styles.navText}>PROFILE</Text>
+               </TouchableOpacity>
       </View>
     </View>
   );
@@ -212,7 +263,25 @@ const styles = StyleSheet.create({
   imageBtn: { marginTop: 16, backgroundColor: '#eee', padding: 10, borderRadius: 8, alignItems: 'center' },
   imageBtnText: { color: '#333', fontSize: 16 },
   previewImage: { width: '100%', height: 200, marginTop: 10, borderRadius: 8 },
-  picker: { marginTop: 8, borderBottomWidth: 1, borderColor: '#ccc' },
+  tagList: { paddingVertical: 8 },
+  tag: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1565c0',
+    marginRight: 8,
+  },
+  tagSelected: {
+    backgroundColor: '#1565c0',
+  },
+  tagText: {
+    fontSize: 14,
+    color: '#1565c0',
+  },
+  tagTextSelected: {
+    color: '#fff',
+  },
   bottomButtons: {
     flexDirection: 'row', justifyContent: 'space-around', marginTop: 20, marginBottom: 20
   },
@@ -230,12 +299,6 @@ const styles = StyleSheet.create({
   navItem: { alignItems: 'center' },
   navIcon: { width: 24, height: 24, marginBottom: 4 },
   navText: { fontSize: 12, color: '#555' },
-  slider: {
-    width: '100%',
-    height: 40,
-    marginTop: 8,
-    marginBottom: 16,
-  }
 });
 
 export default CreatePost;

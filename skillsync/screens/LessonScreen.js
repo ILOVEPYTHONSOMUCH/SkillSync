@@ -18,7 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { AntDesign } from '@expo/vector-icons';
 
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://10.56.138.58:6000';
 
 export default function LessonScreen() {
   const [lessons, setLessons] = useState([]);

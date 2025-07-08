@@ -5,21 +5,22 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://10.56.138.58:6000';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const [posts, setPosts]                 = useState([]);
-  const [search, setSearch]               = useState('');
-  const [comments, setComments]           = useState({});
+  const [posts, setPosts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [comments, setComments] = useState({});
   const [commentImages, setCommentImages] = useState({});
-  const [user, setUser]                   = useState({
+  const [user, setUser] = useState({
     username: '', totalScore: 0, avatar: null, grade: null,
   });
   const navigation = useNavigation();
 
+  // Fetch current user info
   useEffect(() => {
     (async () => {
       const token = await AsyncStorage.getItem('userToken');
@@ -31,10 +32,10 @@ export default function HomeScreen() {
         if (res.ok) {
           const me = await res.json();
           setUser({
-            username:   me.username,
+            username: me.username,
             totalScore: me.totalScore,
-            avatar:     me.avatar,
-            grade:      me.grade,
+            avatar: me.avatar,
+            grade: me.grade,
           });
         }
       } catch (e) {
@@ -43,19 +44,19 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  // Fetch posts filtered by user's grade
   useEffect(() => {
     if (user.grade == null) return;
     (async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
         const res = await fetch(
-          `${API_BASE}/api/search/posts?grade=${user.grade}`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
+          `${API_BASE}/api/posts?grade=${user.grade}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
+        if (!res.ok) throw new Error('Failed to load posts');
         const data = await res.json();
-        Array.isArray(data) ? setPosts(data) : console.warn(data);
+        setPosts(Array.isArray(data) ? data : []);
       } catch (e) {
         console.error(e);
         Alert.alert('Error', 'Cannot load posts');
@@ -75,11 +76,11 @@ export default function HomeScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
     });
-    if (!result.cancelled) {
-      const uri      = result.uri;
+    if (!result.canceled) {
+      const uri = result.uri;
       const filename = uri.split('/').pop();
-      const match    = /\.(\w+)$/.exec(filename);
-      const type     = match ? `image/${match[1]}` : 'image';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image';
       setCommentImages(prev => ({
         ...prev,
         [postId]: { uri, name: filename, type }
@@ -93,7 +94,7 @@ export default function HomeScreen() {
       return Alert.alert('Empty', 'Write text or attach an image.');
     }
     const token = await AsyncStorage.getItem('userToken');
-    const form  = new FormData();
+    const form = new FormData();
     form.append('msg', text);
     if (commentImages[postId]) {
       form.append('image', commentImages[postId]);
@@ -124,7 +125,7 @@ export default function HomeScreen() {
   };
 
   const filtered = posts.filter(post =>
-    (post.content || post.description || '')
+    (post.description || '')
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -169,14 +170,12 @@ export default function HomeScreen() {
             <View key={post._id} style={styles.feedCard}>
               <View style={styles.feedHeader}>
                 <Image source={require('../assets/Sign-in.png')} style={styles.feedProfile} />
-                <Text style={styles.feedAuthor}>{post.author || 'Unknown'}</Text>
+                <Text style={styles.feedAuthor}>{post.user?.username || 'Unknown'}</Text>
               </View>
-              <Text style={styles.feedContent}>
-                {post.content || post.description || ''}
-              </Text>
-              {post.imagePath && (
+              <Text style={styles.feedContent}>{post.description}</Text>
+              {post.image && (
                 <Image
-                  source={{ uri: fileUrlFrom(post.imagePath) }}
+                  source={{ uri: fileUrlFrom(post.image) }}
                   style={styles.feedImage}
                 />
               )}
@@ -240,8 +239,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#edffff', position: 'relative' },
   content: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', padding: 15, marginTop: 20
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, marginTop: 20
   },
   profileImg: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: '#000066' },
   headerTextGroup: { flex: 1, marginLeft: 10 },
@@ -261,24 +259,10 @@ const styles = StyleSheet.create({
   imageButton: { padding: 6, marginRight: 8 },
   imageIcon: { width: 24, height: 24 },
   thumbnail: { width: 40, height: 40, borderRadius: 8, marginRight: 8 },
-  commentInput: {
-    flex: 1, backgroundColor: '#fff', borderColor: '#ccc',
-    borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 14,
-    minHeight: 40, textAlignVertical: 'top'
-  },
-  commentButton: {
-    backgroundColor: '#000066', paddingVertical: 10,
-    paddingHorizontal: 16, borderRadius: 8, marginLeft: 8
-  },
+  commentInput: { flex: 1, backgroundColor: '#fff', borderColor: '#ccc', borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 14, minHeight: 40, textAlignVertical: 'top' },
+  commentButton: { backgroundColor: '#000066', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, marginLeft: 8 },
   commentButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  navBar: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    alignItems: 'center', backgroundColor: '#fff', height: 60,
-    borderTopColor: '#ccc', borderTopWidth: 1,
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    zIndex: 10, elevation: 10,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0
-  },
+  navBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#fff', height: 60, borderTopColor: '#ccc', borderTopWidth: 1, position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10, elevation: 10, paddingBottom: Platform.OS === 'ios' ? 10 : 0 },
   navItem: { alignItems: 'center', justifyContent: 'center' },
   navIcon: { width: 24, height: 24, marginBottom: 2 },
   navText: { fontSize: 11, color: '#000d63', fontWeight: '500' },
