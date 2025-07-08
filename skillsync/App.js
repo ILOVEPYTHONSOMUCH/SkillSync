@@ -10,6 +10,8 @@ import ProfileScreen from './screens/ProfileScreen';
 import LessonScreen from './screens/LessonScreen';
 import CreatePost from './screens/CreatePost';
 import LessonUploader from './screens/LessonUploader';
+import QuizScreen from './screens/QuizScreen';
+import ChatFeed from './screens/ChatFeed';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -27,6 +29,8 @@ export default function App() {
         <Stack.Screen name="Lesson" component={LessonScreen} />
         <Stack.Screen name="Post" component={CreatePost} />
         <Stack.Screen name="Upload" component={LessonUploader} />
+        <Stack.Screen name="Quiz" component={QuizScreen} />
+        <Stack.Screen name="ChatFeed" component={ChatFeed} />
       </Stack.Navigator>
     </NavigationContainer>
   );

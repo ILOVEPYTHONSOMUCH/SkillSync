@@ -20,13 +20,13 @@
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
     "react-native": "0.79.5",
-    "react-native-dotenv": "^3.4.11",
     "react-native-picker": "^4.3.7",
     "react-native-safe-area-context": "^5.5.1",
     "react-native-screens": "^4.11.1"
   },
   "devDependencies": {
-    "@react-native-community/cli": "latest"
+    "@react-native-community/cli": "latest",
+    "react-native-dotenv": "^3.4.11"
   },
   "private": true
 }

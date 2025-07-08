@@ -8,7 +8,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE = 'http://10.56.138.58:6000';
+const API_BASE = 'http://192.168.41.31:6000';
 
 const subjects = [
   'Physics','Chemistry','Biology',

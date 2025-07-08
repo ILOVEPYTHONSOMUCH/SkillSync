@@ -18,7 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://10.56.138.58:6000/api/auth';
+const BASE_URL = 'http://192.168.41.31:6000/api/auth';
 
 export default function RegisterScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
