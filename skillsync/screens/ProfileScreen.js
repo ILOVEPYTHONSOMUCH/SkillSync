@@ -267,7 +267,30 @@ export default function ProfileScreen() {
 
       {/* Footer Nav */}
       <View style={styles.navBar}>
-        {/* ...nav items... */}
+          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
+                  <Image source={require('../assets/home.png')} style={styles.navIcon} />
+                  <Text style={styles.navText}>HOME</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
+                  <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
+                  <Text style={styles.navText}>QUIZ</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
+                  <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
+                  <Text style={styles.navText}>LESSON</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
+                  <Image source={require('../assets/post.png')} style={styles.navIcon} />
+                  <Text style={styles.navText}>POST</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
+                  <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
+                  <Text style={styles.navText}>CHAT</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+                  <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
+                  <Text style={styles.navText}>PROFILE</Text>
+                </TouchableOpacity>
       </View>
     </View>
   );

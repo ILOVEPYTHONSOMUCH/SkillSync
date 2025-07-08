@@ -93,7 +93,7 @@ export default function LessonScreen() {
             <Text style={styles.title}>Lessons</Text>
             <TouchableOpacity
               style={styles.plusButton}
-              onPress={() => navigation.navigate('CreateLesson')}
+              onPress={() => navigation.navigate('Upload')}
             >
               <AntDesign name="plus" size={20} color="white" />
             </TouchableOpacity>
