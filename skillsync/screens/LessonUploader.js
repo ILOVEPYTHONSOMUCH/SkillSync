@@ -17,7 +17,7 @@ import { Picker } from '@react-native-picker/picker';
 // IMPORTANT: In a real application, you should move this API_BASE URL
 // into an environment variable (e.g., using 'react-native-config' or 'dotenv')
 // rather than hardcoding it directly in your code.
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://192.168.222.1:6000';
 
 export default function LessonUploader({ navigation }) {
   const [user, setUser] = useState(null);

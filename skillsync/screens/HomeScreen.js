@@ -15,7 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://192.168.222.1:6000';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
@@ -55,7 +55,15 @@ export default function HomeScreen() {
       const res = await fetch(`${API_BASE}/api/search/posts?grade=${user.grade}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to load posts');
+      if (!res.ok) {
+        // If the response is not OK, but it's a 404 (Not Found), it might mean no posts
+        // For other errors, still throw an error
+        if (res.status === 404) {
+          setPosts([]); // Explicitly set posts to empty if 404, indicating no posts found
+          return;
+        }
+        throw new Error('Failed to load posts');
+      }
       const rawPosts = await res.json();
       const enrichedPosts = await Promise.all(
         rawPosts.map(async (post) => {
@@ -80,6 +88,7 @@ export default function HomeScreen() {
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Cannot load posts');
+      setPosts([]); // Ensure posts are cleared on error to avoid stale data
     }
   }, [user.grade]);
 
@@ -127,34 +136,49 @@ export default function HomeScreen() {
         </View>
 
         <ScrollView style={styles.feedContainer} contentContainerStyle={{ paddingBottom: 20 }}>
-          {filtered.map(post => (
-            <View key={post._id} style={styles.feedCard}>
-              <View style={styles.feedHeader}>
-                {post.authorAvatar ? (
-                  <Image source={{ uri: fileUrlFrom(post.authorAvatar) }} style={styles.feedProfile} />
-                ) : (
-                  <Image source={require('../assets/Sign-in.png')} style={styles.feedProfile} />
-                )}
-                <Text style={styles.feedAuthor}>{post.authorUsername}</Text>
-              </View>
-              <Text style={styles.feedContent}>{post.description}</Text>
-              {post.image && (
-                <Image
-                  source={{ uri: fileUrlFrom(post.image) }}
-                  style={styles.feedImage}
-                  resizeMode="cover"
-                />
-              )}
+          {filtered.length === 0 ? (
+            <View style={styles.noPostsContainer}>
+              <Text style={styles.noPostsText}>
+                It looks like there are no posts here yet.
+                {"\n"}Be the first to create one!
+              </Text>
               <TouchableOpacity
-                style={styles.commentBox}
-                onPress={() => navigation.navigate('CommentAdd', { postId: post._id })}
+                style={styles.createPostButton}
+                onPress={() => navigation.navigate('Post')}
               >
-                <Image source={require('../assets/image.png')} style={styles.imageIcon} />
-                <Text style={styles.commentPlaceholder}>Write a comment...</Text>
-                <Text style={styles.commentSubmit}>Post</Text>
+                <Text style={styles.createPostButtonText}>Create New Post</Text>
               </TouchableOpacity>
             </View>
-          ))}
+          ) : (
+            filtered.map(post => (
+              <View key={post._id} style={styles.feedCard}>
+                <View style={styles.feedHeader}>
+                  {post.authorAvatar ? (
+                    <Image source={{ uri: fileUrlFrom(post.authorAvatar) }} style={styles.feedProfile} />
+                  ) : (
+                    <Image source={require('../assets/Sign-in.png')} style={styles.feedProfile} />
+                  )}
+                  <Text style={styles.feedAuthor}>{post.authorUsername}</Text>
+                </View>
+                <Text style={styles.feedContent}>{post.description}</Text>
+                {post.image && (
+                  <Image
+                    source={{ uri: fileUrlFrom(post.image) }}
+                    style={styles.feedImage}
+                    resizeMode="cover"
+                  />
+                )}
+                <TouchableOpacity
+                  style={styles.commentBox}
+                  onPress={() => navigation.navigate('CommentAdd', { postId: post._id })}
+                >
+                  <Image source={require('../assets/image.png')} style={styles.imageIcon} />
+                  <Text style={styles.commentPlaceholder}>Write a comment...</Text>
+                  <Text style={styles.commentSubmit}>Post</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -205,11 +229,36 @@ const styles = StyleSheet.create({
   feedProfile: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
   feedAuthor: { fontWeight: 'bold', fontSize: 16 },
   feedContent: { fontSize: 14, marginVertical: 8 },
-  feedImage: { height: 160, width: width-72, borderRadius: 8, marginTop: 10 },
+  feedImage: { height: 160, width: width - 72, borderRadius: 8, marginTop: 10 },
   commentBox: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
   imageIcon: { width: 24, height: 24, marginRight: 8 },
   commentPlaceholder: { flex: 1, color: '#888' },
   commentSubmit: { color: '#000066', fontWeight: 'bold' },
+  noPostsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 50, // Adjust as needed to position it well
+  },
+  noPostsText: {
+    fontSize: 18,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  createPostButton: {
+    backgroundColor: '#000066',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  createPostButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   navBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',

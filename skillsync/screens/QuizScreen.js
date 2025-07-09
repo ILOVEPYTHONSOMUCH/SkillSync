@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   ScrollView,
   SafeAreaView,
   Platform,
+  ActivityIndicator, // Import ActivityIndicator for loading state
+  Alert,             // Import Alert for error messages
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
 
 // Assume these images are in your project's assets folder
-// e.g., create an 'assets' folder at the root of your project
 const images = {
   logo: require('../assets/SkillSyncLogo.png'),
   homeIcon: require('../assets/home.png'),
@@ -24,24 +26,129 @@ const images = {
   profileIcon: require('../assets/Sign-in.png'),
 };
 
+const API_BASE = 'http://192.168.222.1:6000'; // Define API_BASE
+
 export default function QuizScreen() {
   const navigation = useNavigation();
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState(''); // State for search input
+  const [userGrade, setUserGrade] = useState(null); // State to store user's grade
+
+  // Fetch user's grade on component mount
+  useEffect(() => {
+    const fetchUserGrade = async () => {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const me = await res.json();
+          setUserGrade(me.grade); // Assuming 'grade' field exists in user data
+        }
+      } catch (e) {
+        console.error("Failed to fetch user grade:", e);
+      }
+    };
+    fetchUserGrade();
+  }, []);
+
+
+  // Function to get file URL from relative path
+  const fileUrlFrom = (relPath) => {
+    if (!relPath) return null;
+    const encoded = encodeURIComponent(relPath.replace(/\\/g, '/'));
+    return `${API_BASE}/api/file?path=${encoded}`;
+  };
+
+  const fetchQuizzes = useCallback(async () => {
+    if (userGrade === null) {
+      // Don't fetch if user grade isn't loaded yet
+      setLoading(true); // Keep loading state true until grade is available or error
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Authentication Required', 'Please log in to view quizzes.');
+        setLoading(false);
+        return;
+      }
+
+      // Add keyword and grade to the URL for filtering
+      let url = `${API_BASE}/api/search/quizzes?grade=${userGrade}`;
+      if (searchQuery) {
+        url += `&keyword=${encodeURIComponent(searchQuery)}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch quizzes.' }));
+        // If the error is due to no quizzes found (e.g., 404 from specific API setup), treat as empty
+        if (response.status === 404) {
+          setQuizzes([]);
+          return;
+        }
+        throw new Error(errorData.message || 'Failed to fetch quizzes.');
+      }
+
+      const data = await response.json();
+      setQuizzes(data);
+    } catch (err) {
+      console.error("Error fetching quizzes:", err);
+      setError(err.message || "Could not load quizzes.");
+      setQuizzes([]); // Clear quizzes on error
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, userGrade]); // Depend on searchQuery AND userGrade
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchQuizzes();
+    }, [fetchQuizzes])
+  );
+
+  // No need for a separate filter since the API now handles keyword and grade filtering
+  // const filteredQuizzes = quizzes.filter(...)
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header - Empty in original HTML, but kept for structure if needed */}
+        {/* Header - Dummy for initial layout */}
         <View style={styles.headerDummy}></View>
 
         {/* Top Controls Section */}
         <View style={styles.topControls}>
           <View style={styles.leftControls}>
-            <Text style={styles.quizTitle}>Quiz</Text>
+            <View style={styles.quizTitleContainer}>
+              <Text style={styles.quizTitle}>Quiz</Text>
+              <TouchableOpacity
+                style={styles.createQuizButton}
+                onPress={() => navigation.navigate('QuizCreate')} // Navigate to QuizCreate.js
+              >
+                <Text style={styles.createQuizButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.searchBox}>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Searching Quiz"
                 placeholderTextColor="#888"
+                value={searchQuery}
+                onChangeText={setSearchQuery} // Update search state
+                onSubmitEditing={fetchQuizzes} // Trigger search on submit
               />
               <Text style={styles.searchIcon}>🔍</Text>
             </View>
@@ -54,43 +161,53 @@ export default function QuizScreen() {
 
         {/* Main Content Area - Scrollable */}
         <ScrollView contentContainerStyle={styles.quizContainer}>
-          {/* Quiz Card 1 (Red) */}
-          <View style={[styles.quizCard, styles.quizCardRed]}>
-            <Text style={[styles.quizCardTitle, { color: 'red' }]}>Math</Text>
-            <Text style={styles.quizCardText}>Lesson: Trigonometry (Multiple choice Questions) 30 Questions.</Text>
-            <Text style={styles.quizCardText}>Time: 1 hr 30 min</Text>
-            <Text style={styles.quizCardText}>Points: 30 points</Text>
-            <Text style={styles.quizCardText}>Creator: Cheearawit Keerati</Text>
-            <TouchableOpacity style={styles.startBtn}>
-              <Text style={styles.startBtnText}>Start the Quiz</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Quiz Card 2 (Blue) */}
-          <View style={[styles.quizCard, styles.quizCardBlue]}>
-            <Text style={[styles.quizCardTitle, { color: '#0066cc' }]}>Physics</Text>
-            <Text style={styles.quizCardText}>Lesson: Wave & Simple Harmonic Motions (Multiple Choice Questions) 30 Questions.</Text>
-            <Text style={styles.quizCardText}>Time: 1 hr</Text>
-            <Text style={styles.quizCardText}>Creator: Thorfun N.</Text>
-            <TouchableOpacity style={[styles.startBtn, styles.startBtnBlue]}>
-              <Text style={styles.startBtnText}>Start the Quiz</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Quiz Card 3 (Orange) */}
-          <View style={[styles.quizCard, styles.quizCardOrange]}>
-            <Text style={[styles.quizCardTitle, { color: '#ff6600' }]}>English</Text>
-            <Text style={styles.quizCardText}>Lesson: Present Continuous Tense (Written Exam) 15 Questions.</Text>
-            <Text style={styles.quizCardText}>Time: 30 min</Text>
-            <Text style={styles.quizCardText}>Point: 10 points</Text>
-            <Text style={styles.quizCardText}>Creator: Punyawee S.</Text>
-            <TouchableOpacity style={styles.startBtn}>
-              <Text style={styles.startBtnText}>Start the Quiz</Text>
-            </TouchableOpacity>
-          </View>
+          {loading ? (
+            <ActivityIndicator size="large" color="#000066" style={styles.loadingIndicator} />
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : quizzes.length === 0 ? ( // Use 'quizzes.length' as filtering is done on backend
+            <View style={styles.noQuizzesContainer}>
+              <Text style={styles.noQuizzesText}>
+                No quizzes found
+                {searchQuery ? ' matching your search criteria' : ` for your grade (Grade ${userGrade || 'N/A'})`}.
+                {"\n"}Be the first to create one!
+              </Text>
+              <TouchableOpacity
+                style={styles.createQuizButtonLarge}
+                onPress={() => navigation.navigate('QuizCreate')}
+              >
+                <Text style={styles.createQuizButtonTextLarge}>Create New Quiz</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            quizzes.map((quiz) => ( // Iterate over 'quizzes' directly
+              <View key={quiz.quizId} style={[styles.quizCard, styles.quizCardRed]}>
+                {quiz.coverImage && (
+                  <Image
+                    source={{ uri: fileUrlFrom(quiz.coverImage) }}
+                    style={styles.quizCoverImage}
+                    resizeMode="cover"
+                  />
+                )}
+                <Text style={[styles.quizCardTitle, { color: 'red' }]}>{quiz.title || 'N/A'}</Text>
+                <Text style={styles.quizCardText}>Subject: {quiz.subject || 'N/A'}</Text>
+                <Text style={styles.quizCardText}>Grade: {quiz.grade || 'N/A'}</Text>
+                <Text style={styles.quizCardText}>Questions: {quiz.questions ? quiz.questions.length : 0}</Text>
+                {/* Your new quiz model doesn't have timeLimit or totalPoints as direct fields */}
+                {/* You might calculate these on the frontend if needed, or add them to the model */}
+                <Text style={styles.quizCardText}>Creator: {quiz.creatorUsername || 'Unknown'}</Text>
+                <TouchableOpacity
+                  style={styles.startBtn}
+                  onPress={() => navigation.navigate('QuizDetail', { quizId: quiz.quizId })} // Pass quizId
+                >
+                  <Text style={styles.startBtnText}>Start the Quiz</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
         </ScrollView>
 
-        {/* Bottom Navigation Bar - Copied from HomeScreen.js */}
+        {/* Bottom Navigation Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
             <Image source={images.homeIcon} style={styles.navIcon} />
@@ -156,10 +273,34 @@ const styles = StyleSheet.create({
     gap: 15,
     flexWrap: 'wrap',
   },
+  quizTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   quizTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+  },
+  createQuizButton: {
+    backgroundColor: '#7ED321', // Green color
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  createQuizButtonText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    lineHeight: 22,
   },
   searchBox: {
     flexDirection: 'row',
@@ -214,14 +355,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 8,
     borderLeftColor: '#9c2c2c',
   },
-  quizCardBlue: {
-    backgroundColor: '#dff2fd',
-    borderLeftWidth: 8,
-    borderLeftColor: '#1458a8',
-  },
-  quizCardOrange: {
-    borderLeftWidth: 8,
-    borderLeftColor: '#d07b00',
+  quizCoverImage: { // New style for quiz cover image
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   quizCardTitle: {
     fontSize: 22,
@@ -241,16 +379,47 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
-  startBtnBlue: {
-    backgroundColor: '#1c59c4',
-  },
   startBtnText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
   },
+  loadingIndicator: {
+    marginTop: 50,
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 50,
+  },
+  noQuizzesContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 50,
+  },
+  noQuizzesText: {
+    fontSize: 18,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  createQuizButtonLarge: {
+    backgroundColor: '#000066',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  createQuizButtonTextLarge: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 
-  // Navigation Bar Styles - Copied directly from HomeScreen.js
+  // Navigation Bar Styles
   navBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',

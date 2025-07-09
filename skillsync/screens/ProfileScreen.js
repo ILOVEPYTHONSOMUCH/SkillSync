@@ -9,9 +9,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://192.168.222.1:6000';
 const { width } = Dimensions.get('window');
-const SUBJECTS = ['Math','Physics','Chemistry','Biology','Social','History'];
+const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History'];
 
 // Tag component for multi-select
 const Tag = ({ label, selected, onPress }) => (
@@ -36,24 +36,32 @@ export default function ProfileScreen() {
   const [postCount, setPostCount] = useState(0);
   const [points, setPoints] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false); // New state for save button loading
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const fileUrlFrom = relPath => {
     if (!relPath) return null;
-    const p = relPath.replace(/\\/g,'/');
+    const p = relPath.replace(/\\/g, '/');
     return `${API_BASE}/api/file?path=${encodeURIComponent(p)}`;
   };
 
   useEffect(() => {
     (async () => {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return navigation.replace('Login');
+      if (!token) {
+        // If no token, navigate to Login and stop loading
+        setLoading(false);
+        return navigation.replace('Login');
+      }
       try {
         const res = await fetch(`${API_BASE}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ message: 'Failed to parse error' }));
+          throw new Error(errorData.message || 'Failed to load user profile. Please try again.');
+        }
         const user = await res.json();
         setProfile({
           username: user.username,
@@ -68,8 +76,8 @@ export default function ProfileScreen() {
         setPostCount(user.totalPosts || 0);
         setPoints(user.totalScore || 0);
       } catch (e) {
-        Alert.alert('Error','Failed to load profile');
-        console.error(e);
+        Alert.alert('Error', e.message || 'Failed to load profile. Check your network.');
+        console.error("Profile load error:", e);
       } finally {
         setLoading(false);
       }
@@ -79,11 +87,13 @@ export default function ProfileScreen() {
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      return Alert.alert('Permission required','Need photo library access.');
+      return Alert.alert('Permission required', 'Need photo library access to pick an avatar.');
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
+      allowsEditing: true, // Allow user to crop/edit the image
+      aspect: [1, 1], // Force square aspect ratio for avatars
     });
     if (!result.canceled) {
       const uri = result.uri || result.assets?.[0]?.uri;
@@ -109,10 +119,15 @@ export default function ProfileScreen() {
 
   const onSave = async () => {
     if (profile.password && profile.password !== profile.confirm) {
-      return Alert.alert('Error','Passwords do not match');
+      return Alert.alert('Input Error', 'Passwords do not match.');
     }
+
+    setIsSaving(true); // Start loading state for save button
     const token = await AsyncStorage.getItem('userToken');
-    if (!token) return Alert.alert('Error','Not authenticated');
+    if (!token) {
+      setIsSaving(false);
+      return Alert.alert('Authentication Required', 'You are not logged in. Please log in again.');
+    }
 
     const form = new FormData();
     form.append('username', profile.username);
@@ -133,23 +148,47 @@ export default function ProfileScreen() {
     try {
       const res = await fetch(`${API_BASE}/api/auth/profile`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // 'Content-Type': 'multipart/form-data' is typically set automatically by fetch for FormData
+        },
         body: form
       });
+
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Update failed');
+        const errorText = await res.text();
+        let errorMessage = 'Profile update failed.';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch (parseError) {
+          // If response is not JSON, use the raw text or a generic message
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
+
       const updated = await res.json();
-      Alert.alert('Success','Profile updated');
+      Alert.alert('Success', 'Profile updated successfully!');
       setProfile(p => ({
         ...p,
-        password: '', confirm: '', avatar: updated.avatar
+        password: '', confirm: '', avatar: updated.avatar // Update avatar path if changed
       }));
-      setAvatarFile(null);
+      setAvatarFile(null); // Clear the temporary avatar file
     } catch (e) {
-      console.error(e);
-      Alert.alert('Error', e.message);
+      console.error("Profile save error:", e);
+      // More specific error message for network issues
+      if (e.message && e.message.includes('Network request failed') || e.message.includes('Failed to fetch')) {
+        Alert.alert(
+          'Network Error',
+          'Could not connect to the server. Please check your internet connection and try again.',
+          [{ text: 'OK' }] // Removed the retry option for now to keep it simple, but this is where you'd add it.
+        );
+      } else {
+        Alert.alert('Error', e.message || 'An unexpected error occurred during save.');
+      }
+    } finally {
+      setIsSaving(false); // End loading state for save button
     }
   };
 
@@ -157,6 +196,7 @@ export default function ProfileScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#000066" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
@@ -164,7 +204,7 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <Image source={require('../assets/SkillSyncLogo.png')} style={styles.logo}/>
+        <Image source={require('../assets/SkillSyncLogo.png')} style={styles.logo} />
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.profileSection}>
@@ -194,8 +234,12 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.accountBtn}>
             <Text style={styles.btnText}>Your Account</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.saveBtn} onPress={onSave}>
-            <Text style={styles.btnText}>Save</Text>
+          <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={isSaving}>
+            {isSaving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Save</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -267,53 +311,53 @@ export default function ProfileScreen() {
 
       {/* Footer Nav */}
       <View style={styles.navBar}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-                  <Image source={require('../assets/home.png')} style={styles.navIcon} />
-                  <Text style={styles.navText}>HOME</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
-                  <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
-                  <Text style={styles.navText}>QUIZ</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
-                  <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
-                  <Text style={styles.navText}>LESSON</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
-                  <Image source={require('../assets/post.png')} style={styles.navIcon} />
-                  <Text style={styles.navText}>POST</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
-                  <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
-                  <Text style={styles.navText}>CHAT</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-                  <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
-                  <Text style={styles.navText}>PROFILE</Text>
-                </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
+          <Image source={require('../assets/home.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>HOME</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
+          <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>QUIZ</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
+          <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>LESSON</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
+          <Image source={require('../assets/post.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>POST</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
+          <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>CHAT</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+          <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>PROFILE</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
 const LabelledInput = ({ label, value, onChange, secure, icon, onIconPress, editable = true }) => (
-  <View style={{ marginBottom: 15 }}> 
-    <Text style={styles.label}>{label}</Text> 
-    <View style={styles.inputGroup}> 
-      <TextInput 
-        style={styles.input} 
-        value={value} 
-        secureTextEntry={secure} 
-        onChangeText={onChange} 
-        editable={editable} 
-      /> 
-      {icon && ( 
-        <TouchableOpacity onPress={onIconPress}> 
-          <Text style={{ fontSize: 20, padding: 4 }}>{icon}</Text> 
-        </TouchableOpacity> 
-      )} 
-    </View> 
-  </View> 
+  <View style={{ marginBottom: 15 }}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={styles.inputGroup}>
+      <TextInput
+        style={styles.input}
+        value={value}
+        secureTextEntry={secure}
+        onChangeText={onChange}
+        editable={editable}
+      />
+      {icon && (
+        <TouchableOpacity onPress={onIconPress}>
+          <Text style={{ fontSize: 20, padding: 4 }}>{icon}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  </View>
 );
 
 const styles = StyleSheet.create({
@@ -334,6 +378,7 @@ const styles = StyleSheet.create({
   accountBtn: { backgroundColor: '#0052cc', padding: 10, borderRadius: 8, width: '48%', alignItems: 'center' },
   saveBtn: { backgroundColor: '#7ED321', padding: 10, borderRadius: 8, width: '48%', alignItems: 'center' },
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#000066' }, // New style for loading text
   label: { fontSize: 16, color: '#003399', fontWeight: 'bold', marginBottom: 6 },
   inputGroup: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#000' },
   input: { flex: 1, fontSize: 16, paddingVertical: 6 },
