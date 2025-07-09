@@ -136,7 +136,7 @@ export default function QuizScreen() {
               <Text style={styles.quizTitle}>Quiz</Text>
               <TouchableOpacity
                 style={styles.createQuizButton}
-                onPress={() => navigation.navigate('QuizCreate')} // Navigate to QuizCreate.js
+                onPress={() => navigation.navigate('CreateQuiz')} // Navigate to QuizCreate.js
               >
                 <Text style={styles.createQuizButtonText}>+</Text>
               </TouchableOpacity>

@@ -73,6 +73,7 @@ const CreatePost = ({ navigation }) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
+      allowsEditing: true
     });
     if (!result.canceled) {
       setImageFile(result.assets[0]);

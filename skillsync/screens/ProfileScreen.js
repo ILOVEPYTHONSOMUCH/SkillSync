@@ -30,13 +30,14 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState({
     username: '', email: '', grade: 7,
     strengths: [], weaknesses: [],
-    avatar: null, password: '', confirm: ''
+    avatar: null, password: '', confirm: '',
+    note: '' // Added back the note field
   });
   const [avatarFile, setAvatarFile] = useState(null);
   const [postCount, setPostCount] = useState(0);
   const [points, setPoints] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false); // New state for save button loading
+  const [isSaving, setIsSaving] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -50,7 +51,6 @@ export default function ProfileScreen() {
     (async () => {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        // If no token, navigate to Login and stop loading
         setLoading(false);
         return navigation.replace('Login');
       }
@@ -71,7 +71,8 @@ export default function ProfileScreen() {
           weaknesses: user.skills?.weaknesses || [],
           avatar: user.avatar,
           password: '',
-          confirm: ''
+          confirm: '',
+          note: user.note || '' // Added back the note field
         });
         setPostCount(user.totalPosts || 0);
         setPoints(user.totalScore || 0);
@@ -92,8 +93,8 @@ export default function ProfileScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
-      allowsEditing: true, // Allow user to crop/edit the image
-      aspect: [1, 1], // Force square aspect ratio for avatars
+      allowsEditing: true,
+      aspect: [1, 1],
     });
     if (!result.canceled) {
       const uri = result.uri || result.assets?.[0]?.uri;
@@ -122,7 +123,7 @@ export default function ProfileScreen() {
       return Alert.alert('Input Error', 'Passwords do not match.');
     }
 
-    setIsSaving(true); // Start loading state for save button
+    setIsSaving(true);
     const token = await AsyncStorage.getItem('userToken');
     if (!token) {
       setIsSaving(false);
@@ -132,6 +133,7 @@ export default function ProfileScreen() {
     const form = new FormData();
     form.append('username', profile.username);
     form.append('grade', String(profile.grade));
+    form.append('note', profile.note); // Added back note to form data
     form.append('skills', JSON.stringify({
       strengths: profile.strengths,
       weaknesses: profile.weaknesses
@@ -150,7 +152,6 @@ export default function ProfileScreen() {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
-          // 'Content-Type': 'multipart/form-data' is typically set automatically by fetch for FormData
         },
         body: form
       });
@@ -162,7 +163,6 @@ export default function ProfileScreen() {
           const errorJson = JSON.parse(errorText);
           errorMessage = errorJson.message || errorMessage;
         } catch (parseError) {
-          // If response is not JSON, use the raw text or a generic message
           errorMessage = errorText || errorMessage;
         }
         throw new Error(errorMessage);
@@ -172,23 +172,23 @@ export default function ProfileScreen() {
       Alert.alert('Success', 'Profile updated successfully!');
       setProfile(p => ({
         ...p,
-        password: '', confirm: '', avatar: updated.avatar // Update avatar path if changed
+        password: '', confirm: '', avatar: updated.avatar,
+        note: updated.note || '' // Update note from response
       }));
-      setAvatarFile(null); // Clear the temporary avatar file
+      setAvatarFile(null);
     } catch (e) {
       console.error("Profile save error:", e);
-      // More specific error message for network issues
       if (e.message && e.message.includes('Network request failed') || e.message.includes('Failed to fetch')) {
         Alert.alert(
           'Network Error',
           'Could not connect to the server. Please check your internet connection and try again.',
-          [{ text: 'OK' }] // Removed the retry option for now to keep it simple, but this is where you'd add it.
+          [{ text: 'OK' }]
         );
       } else {
         Alert.alert('Error', e.message || 'An unexpected error occurred during save.');
       }
     } finally {
-      setIsSaving(false); // End loading state for save button
+      setIsSaving(false);
     }
   };
 
@@ -266,6 +266,20 @@ export default function ProfileScreen() {
           value={profile.confirm}
           onChange={v => setProfile(p => ({ ...p, confirm: v }))}
         />
+
+        {/* About Me Textarea - Restored */}
+        <View style={{ marginBottom: 15 }}>
+          <Text style={styles.label}>About Me</Text>
+          <TextInput
+            style={styles.textarea}
+            value={profile.note}
+            onChangeText={v => setProfile(p => ({ ...p, note: v }))}
+            multiline={true}
+            numberOfLines={4}
+            textAlignVertical="top"
+            placeholder="Tell us about yourself..."
+          />
+        </View>
 
         {/* Multi-select teach subjects */}
         <Text style={styles.label}>I'm good on subjects:</Text>
@@ -378,10 +392,20 @@ const styles = StyleSheet.create({
   accountBtn: { backgroundColor: '#0052cc', padding: 10, borderRadius: 8, width: '48%', alignItems: 'center' },
   saveBtn: { backgroundColor: '#7ED321', padding: 10, borderRadius: 8, width: '48%', alignItems: 'center' },
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  loadingText: { marginTop: 10, fontSize: 16, color: '#000066' }, // New style for loading text
+  loadingText: { marginTop: 10, fontSize: 16, color: '#000066' },
   label: { fontSize: 16, color: '#003399', fontWeight: 'bold', marginBottom: 6 },
   inputGroup: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#000' },
   input: { flex: 1, fontSize: 16, paddingVertical: 6 },
+  // Textarea styles - Restored
+  textarea: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    height: 100,
+    textAlignVertical: 'top'
+  },
   tagList: { paddingVertical: 8 },
   tag: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: '#003399', marginRight: 8 },
   tagSelected: { backgroundColor: '#003399' },

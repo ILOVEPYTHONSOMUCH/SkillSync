@@ -12,6 +12,7 @@ import CreatePost from './screens/CreatePost';
 import LessonUploader from './screens/LessonUploader';
 import QuizScreen from './screens/QuizScreen';
 import ChatFeed from './screens/ChatFeed';
+import CreateQuiz from './screens/CreateQuiz';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
         <Stack.Screen name="Upload" component={LessonUploader} />
         <Stack.Screen name="Quiz" component={QuizScreen} />
         <Stack.Screen name="ChatFeed" component={ChatFeed} />
+        <Stack.Screen name="CreateQuiz" component={CreateQuiz} />
       </Stack.Navigator>
     </NavigationContainer>
   );
