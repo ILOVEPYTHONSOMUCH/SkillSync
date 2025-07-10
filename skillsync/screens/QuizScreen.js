@@ -26,7 +26,36 @@ const images = {
   profileIcon: require('../assets/Sign-in.png'),
 };
 
-const API_BASE = 'http://192.168.222.1:6000'; // Define API_BASE
+const API_BASE = 'http://192.168.41.31:6000'; // Define API_BASE
+
+// Define subject-specific colors with your new preferences
+const subjectColors = {
+  'Math': '#6a8eec',      // Softer, slightly muted blue
+  'Physics': '#d9534f',   // Muted, slightly desaturated red
+  'Chemistry': '#f0ad4e', // Muted orange-yellow (instead of pure yellow for better contrast)
+  'Biology': '#5cb85c',   // A standard, slightly muted green
+  'Social': '#f8c057',    // Softer, sunnier orange-yellow
+  'History': '#e7a6b8',   // Dusty rose/pink
+  'Music': '#34495e',     // Very dark slate blue (softer than pure black)
+  'Art': '#9b59b6',       // Muted purple
+  'English': '#8d6e63',   // Earthy brown
+  'Default': '#95a5a6',   // Muted grey (fits better with light backgrounds)
+};
+
+// Define a new color palette for overall app theme
+const appColors = {
+  primary: '#7ED321',        // Slate Grey (neutral primary for general buttons)
+  secondary: '#795548',      // Brown (for less critical actions like My Quiz Result)
+  background: '#F5F5F5',     // Lighter grey for overall screen background
+  cardBackground: '#FFFFFF', // White for cards
+  textPrimary: '#212121',    // Dark grey for main text
+  textSecondary: '#757575',  // Medium grey for secondary text
+  accent: '#FF9800',         // Deep Orange for highlights
+  headerBackground: '#004aad', // Indigo Blue for header (Note: This will be overridden by '#000c52' for headerDummy)
+  navBarBackground: '#FFFFFF', // White for nav bar
+  navTextActive: '#3F51B5', // Indigo Blue for active nav text
+};
+
 
 export default function QuizScreen() {
   const navigation = useNavigation();
@@ -55,7 +84,6 @@ export default function QuizScreen() {
     };
     fetchUserGrade();
   }, []);
-
 
   // Function to get file URL from relative path
   const fileUrlFrom = (relPath) => {
@@ -120,9 +148,6 @@ export default function QuizScreen() {
     }, [fetchQuizzes])
   );
 
-  // No need for a separate filter since the API now handles keyword and grade filtering
-  // const filteredQuizzes = quizzes.filter(...)
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -136,7 +161,7 @@ export default function QuizScreen() {
               <Text style={styles.quizTitle}>Quiz</Text>
               <TouchableOpacity
                 style={styles.createQuizButton}
-                onPress={() => navigation.navigate('CreateQuiz')} // Navigate to QuizCreate.js
+                onPress={() => navigation.navigate('CreateQuiz')}
               >
                 <Text style={styles.createQuizButtonText}>+</Text>
               </TouchableOpacity>
@@ -145,15 +170,15 @@ export default function QuizScreen() {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Searching Quiz"
-                placeholderTextColor="#888"
+                placeholderTextColor={appColors.textSecondary}
                 value={searchQuery}
-                onChangeText={setSearchQuery} // Update search state
-                onSubmitEditing={fetchQuizzes} // Trigger search on submit
+                onChangeText={setSearchQuery}
+                onSubmitEditing={fetchQuizzes}
               />
               <Text style={styles.searchIcon}>🔍</Text>
             </View>
             <TouchableOpacity style={styles.myResultBtn}>
-              <Text style={styles.myResultBtnText}>My Quiz Result</Text>
+              <Text style={styles.myResultBtnText} onPress={() => navigation.navigate('QuizResults')}>My Quiz Result</Text>
             </TouchableOpacity>
           </View>
           <Image source={images.logo} style={styles.logo} />
@@ -162,10 +187,10 @@ export default function QuizScreen() {
         {/* Main Content Area - Scrollable */}
         <ScrollView contentContainerStyle={styles.quizContainer}>
           {loading ? (
-            <ActivityIndicator size="large" color="#000066" style={styles.loadingIndicator} />
+            <ActivityIndicator size="large" color={appColors.primary} style={styles.loadingIndicator} />
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
-          ) : quizzes.length === 0 ? ( // Use 'quizzes.length' as filtering is done on backend
+          ) : quizzes.length === 0 ? (
             <View style={styles.noQuizzesContainer}>
               <Text style={styles.noQuizzesText}>
                 No quizzes found
@@ -174,14 +199,20 @@ export default function QuizScreen() {
               </Text>
               <TouchableOpacity
                 style={styles.createQuizButtonLarge}
-                onPress={() => navigation.navigate('QuizCreate')}
+                onPress={() => navigation.navigate('CreateQuiz')}
               >
                 <Text style={styles.createQuizButtonTextLarge}>Create New Quiz</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            quizzes.map((quiz) => ( // Iterate over 'quizzes' directly
-              <View key={quiz.quizId} style={[styles.quizCard, styles.quizCardRed]}>
+            quizzes.map((quiz) => (
+              <View
+                key={quiz.quizId}
+                style={[
+                  styles.quizCard,
+                  { borderLeftColor: subjectColors[quiz.subject] || subjectColors.Default }
+                ]}
+              >
                 {quiz.coverImage && (
                   <Image
                     source={{ uri: fileUrlFrom(quiz.coverImage) }}
@@ -189,18 +220,25 @@ export default function QuizScreen() {
                     resizeMode="cover"
                   />
                 )}
-                <Text style={[styles.quizCardTitle, { color: 'red' }]}>{quiz.title || 'N/A'}</Text>
+                <Text style={styles.quizCardTitle}>{quiz.title || 'N/A'}</Text>
                 <Text style={styles.quizCardText}>Subject: {quiz.subject || 'N/A'}</Text>
                 <Text style={styles.quizCardText}>Grade: {quiz.grade || 'N/A'}</Text>
                 <Text style={styles.quizCardText}>Questions: {quiz.questions ? quiz.questions.length : 0}</Text>
-                {/* Your new quiz model doesn't have timeLimit or totalPoints as direct fields */}
-                {/* You might calculate these on the frontend if needed, or add them to the model */}
-                <Text style={styles.quizCardText}>Creator: {quiz.creatorUsername || 'Unknown'}</Text>
+                <Text style={styles.quizCardId}>Quiz ID: {quiz.quizId}</Text>
                 <TouchableOpacity
-                  style={styles.startBtn}
-                  onPress={() => navigation.navigate('QuizDetail', { quizId: quiz.quizId })} // Pass quizId
+                  style={[
+                    styles.startBtn,
+                    { backgroundColor: subjectColors[quiz.subject] || subjectColors.Default } // Dynamic button color
+                  ]}
+                  onPress={() => navigation.navigate('DoQuiz', { quizId: quiz.quizId })}
                 >
-                  <Text style={styles.startBtnText}>Start the Quiz</Text>
+                  {/* For black button (Music), change text to white for visibility */}
+                  <Text style={[
+                    styles.startBtnText,
+                    quiz.subject === 'Music' && { color: '#FFFFFF' } // White text for 'Music' subject button
+                  ]}>
+                    Start the Quiz
+                  </Text>
                 </TouchableOpacity>
               </View>
             ))
@@ -242,19 +280,19 @@ export default function QuizScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f4f4f4',
+    backgroundColor: appColors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: '#f4f4f4',
+    backgroundColor: appColors.background,
     position: 'relative',
   },
   headerDummy: {
-    backgroundColor: '#0b0c5c',
+    backgroundColor: '#000c52', // Changed to the requested color
     height: 60,
   },
   topControls: {
-    backgroundColor: 'white',
+    backgroundColor: appColors.cardBackground,
     padding: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -281,10 +319,10 @@ const styles = StyleSheet.create({
   quizTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000',
+    color: appColors.textPrimary,
   },
   createQuizButton: {
-    backgroundColor: '#7ED321', // Green color
+    backgroundColor: appColors.primary, // Using general primary for this button
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -297,7 +335,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   createQuizButtonText: {
-    color: 'white',
+    color: appColors.cardBackground, // White text
     fontSize: 20,
     fontWeight: 'bold',
     lineHeight: 22,
@@ -313,21 +351,21 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderWidth: 1,
     width: 160,
-    color: '#000',
+    color: appColors.textPrimary,
   },
   searchIcon: {
     marginLeft: 5,
-    color: 'black',
+    color: appColors.textPrimary,
     fontSize: 16,
   },
   myResultBtn: {
-    backgroundColor: '#0b0c5c',
+    backgroundColor: appColors.secondary, // Using general secondary for this button
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
   },
   myResultBtnText: {
-    color: 'white',
+    color: appColors.cardBackground, // White text
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -341,7 +379,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   quizCard: {
-    backgroundColor: '#fff',
+    backgroundColor: appColors.cardBackground,
     borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -350,12 +388,9 @@ const styles = StyleSheet.create({
     elevation: 4,
     padding: 15,
     marginBottom: 20,
-  },
-  quizCardRed: {
     borderLeftWidth: 8,
-    borderLeftColor: '#9c2c2c',
   },
-  quizCoverImage: { // New style for quiz cover image
+  quizCoverImage: {
     width: '100%',
     height: 150,
     borderRadius: 10,
@@ -365,22 +400,29 @@ const styles = StyleSheet.create({
     fontSize: 22,
     marginBottom: 10,
     fontWeight: 'bold',
+    color: appColors.textPrimary,
   },
   quizCardText: {
     fontSize: 14,
     marginBottom: 5,
-    color: '#333',
+    color: appColors.textSecondary,
+  },
+  quizCardId: {
+    fontSize: 12,
+    color: appColors.textSecondary,
+    marginBottom: 5,
+    fontStyle: 'italic',
   },
   startBtn: {
     marginTop: 10,
-    backgroundColor: '#8e2e2e',
+    // Background color is now dynamic, removed fixed color here
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
   startBtnText: {
-    color: 'white',
+    color: appColors.cardBackground, // Default to white text for contrast on colored buttons
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -402,19 +444,19 @@ const styles = StyleSheet.create({
   },
   noQuizzesText: {
     fontSize: 18,
-    color: '#555',
+    color: appColors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 24,
   },
   createQuizButtonLarge: {
-    backgroundColor: '#000066',
+    backgroundColor: appColors.primary, // Using general primary for this button
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
   },
   createQuizButtonTextLarge: {
-    color: '#fff',
+    color: appColors.cardBackground, // White text
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -424,7 +466,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: appColors.navBarBackground,
     height: 60,
     borderTopColor: '#ccc',
     borderTopWidth: 1,
@@ -447,7 +489,7 @@ const styles = StyleSheet.create({
   },
   navText: {
     fontSize: 11,
-    color: '#000d63',
+    color: appColors.navTextActive,
     fontWeight: '500',
   },
 });

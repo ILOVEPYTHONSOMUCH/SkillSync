@@ -13,6 +13,9 @@ import LessonUploader from './screens/LessonUploader';
 import QuizScreen from './screens/QuizScreen';
 import ChatFeed from './screens/ChatFeed';
 import CreateQuiz from './screens/CreateQuiz';
+import DoQuiz from './screens/DoQuiz';
+import QuizResults from './screens/QuizResults';
+import UserInfoScreen from './screens/UserInfoScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -33,6 +36,9 @@ export default function App() {
         <Stack.Screen name="Quiz" component={QuizScreen} />
         <Stack.Screen name="ChatFeed" component={ChatFeed} />
         <Stack.Screen name="CreateQuiz" component={CreateQuiz} />
+        <Stack.Screen name="DoQuiz" component={DoQuiz} />
+        <Stack.Screen name="QuizResults" component={QuizResults} />
+        <Stack.Screen name="UserInfoScreen" component={UserInfoScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

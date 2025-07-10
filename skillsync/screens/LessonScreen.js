@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { AntDesign, Feather } from '@expo/vector-icons'; // Added Feather for eye icon
 
-const API_BASE = 'http://192.168.222.1:6000'; // Make sure this is your correct backend IP
+const API_BASE = 'http://192.168.41.31:6000'; // Make sure this is your correct backend IP
 
 export default function LessonScreen() {
     const [lessons, setLessons] = useState([]);

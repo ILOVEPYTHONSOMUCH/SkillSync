@@ -1,156 +1,524 @@
-import React, { useState } from 'react';
+// frontend/src/screens/ChatFeed.js
+
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Image,
   TextInput,
-  TouchableOpacity,
+  Image,
   ScrollView,
   SafeAreaView,
-  Dimensions,
-  Platform,
+  TouchableOpacity,
   Alert,
+  Platform,
+  ActivityIndicator,
+  RefreshControl,
+  Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Get window width for responsive styling if needed, though not directly used in this specific style for width calculations
-const { width } = Dimensions.get('window');
+// --- Image Imports ---
+// IMPORTANT: Ensure these paths are correct relative to THIS file's location.
+const SkillSyncLogo = require('../assets/SkillSyncLogo.png');
+const UserAvatarPlaceholder = require('../assets/Sign-in.png'); // Default placeholder if no avatar
 
-// Assume these images are in your project's 'assets/' folder.
-// Make sure these paths are correct relative to your ChatFeed.js file.
-const images = {
-  logo: require('../assets/SkillSyncLogo.png'),
-  searchIcon: require('../assets/search.png'), // Ensure you have this search icon in your assets
-  profilePlaceholder: require('../assets/Sign-in.png'), // Default profile image for users
-  // Navigation icons - these should be consistent across all your navigation components
-  homeIcon: require('../assets/home.png'),
-  quizIcon: require('../assets/quiz.png'),
-  lessonIcon: require('../assets/lesson.png'),
-  postIcon: require('../assets/post.png'),
-  chatfeedIcon: require('../assets/chatfeed.png'),
-  profileIcon: require('../assets/Sign-in.png'), // Using the Sign-in image for the profile nav icon
-};
+// Remote image for search icon (can be replaced with a local asset if preferred)
+const SearchIconUrl = 'https://img.icons8.com/ios-filled/20/search--v1.png';
+
+// --- API Base URL ---
+const API_BASE_URL = 'http://192.168.41.31:6000/api'; // *** REPLACE WITH YOUR ACTUAL BACKEND IP/DOMAIN ***
 
 export default function ChatFeed() {
-  const navigation = useNavigation(); // Initialize the navigation hook
-  const [searchText, setSearchText] = useState(''); // State for the search input
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  const [activeTab, setActiveTab] = useState('chats');
 
-  // Dummy data for chat items. In a real application, you would fetch this from an API.
-  const chatItems = [
-    { id: '1', name: 'Thorfun N.', lastMessage: 'อย่าลืมทำแบบฝึกหัดนะ', time: '15m', avatar: images.profilePlaceholder },
-    { id: '2', name: 'Punyawee S.', lastMessage: 'มีโพสต์ที่สอนเรื่องสมดุลมั้ย ส่งมาให้หน่อย', time: '3m', avatar: images.profilePlaceholder },
-    { id: '3', name: 'napgains', lastMessage: 'ได้สิ เดี๋ยวพรุ่งนี้ไปติวภาษาอังกฤษกัน', time: '1h', avatar: images.profilePlaceholder },
-    { id: '4', name: 'hs_smuththa', lastMessage: 'มีสรุปอังกฤษมั้ย', time: '35m', avatar: images.profilePlaceholder },
-  ];
+  // --- State for API Data ---
+  const [chats, setChats] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [receivedRequests, setReceivedRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
 
-  // Dummy data for status bar. This section is commented out in the JSX below
-  // due to the complexity of perfectly replicating its original HTML styling in React Native.
-  const statusItems = [
-    { id: 's1', name: 'Friend 1', avatar: images.profilePlaceholder },
-    { id: 's2', name: 'Friend 2', avatar: images.profilePlaceholder },
-    { id: 's3', name: 'Friend 3', avatar: images.profilePlaceholder },
-    { id: 's4', name: 'Friend 4', avatar: images.profilePlaceholder },
-    { id: 's5', name: 'Friend 5', avatar: images.profilePlaceholder },
-  ];
+  // --- Loading & Error States ---
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [loadingAllUsers, setLoadingAllUsers] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Handler for when a chat item is pressed
-  const handleChatItemPress = (chatId) => {
-    Alert.alert('Opening Chat', `You clicked on chat ID: ${chatId}`);
-    // In a real app, you would typically navigate to a dedicated chat screen here:
-    // navigation.navigate('ChatScreen', { chatId: chatId });
+  const [errorChats, setErrorChats] = useState(null);
+  const [errorFriends, setErrorFriends] = useState(null);
+  const [errorRequests, setErrorRequests] = useState(null);
+  const [errorAllUsers, setErrorAllUsers] = useState(null);
+  const [errorProfile, setErrorProfile] = useState(null);
+
+  const [allUsersSearchQuery, setAllUsersSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Function to get the authentication token
+  const getToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Authentication Error', 'No token found. Please log in again.');
+        navigation.navigate('Login');
+        return null;
+      }
+      return token;
+    } catch (e) {
+      console.error("Failed to retrieve token:", e);
+      Alert.alert('Error', 'Failed to retrieve authentication token.');
+      return null;
+    }
   };
+
+  // --- API Fetching Functions ---
+
+  const fetchChats = useCallback(async () => {
+    setLoadingChats(true);
+    setErrorChats(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/chat`, { headers: { Authorization: `Bearer ${token}` }, });
+      const data = await response.json();
+      if (response.ok) { setChats(data); } else { setErrorChats(data.msg || 'Failed to fetch chats.'); }
+    } catch (err) { console.error("Error fetching chats:", err); setErrorChats('Network error or server unreachable.'); } finally { setLoadingChats(false); }
+  }, []);
+
+  const fetchFriends = useCallback(async () => {
+    setLoadingFriends(true);
+    setErrorFriends(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/chat/friends`, { headers: { Authorization: `Bearer ${token}` }, });
+      const data = await response.json();
+      if (response.ok) { setFriends(data); } else { setErrorFriends(data.msg || 'Failed to fetch friends.'); }
+    } catch (err) { console.error("Error fetching friends:", err); setErrorFriends('Network error or server unreachable.'); } finally { setLoadingFriends(false); }
+  }, []);
+
+  const fetchRequests = useCallback(async () => {
+    setLoadingRequests(true);
+    setErrorRequests(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const headers = { Authorization: `Bearer ${token}` };
+      const responseReceived = await fetch(`${API_BASE_URL}/chat/friends/requests/received`, { headers: headers, });
+      const dataReceived = await responseReceived.json();
+      const responseSent = await fetch(`${API_BASE_URL}/chat/friends/requests/sent`, { headers: headers, });
+      const dataSent = await responseSent.json();
+      if (responseReceived.ok) { setReceivedRequests(dataReceived); } else { console.error("Received requests error:", dataReceived.msg || dataReceived); setErrorRequests(dataReceived.msg || 'Failed to fetch received requests.'); }
+      if (responseSent.ok) { setSentRequests(dataSent); } else { console.error("Sent requests error:", dataSent.msg || dataSent); setErrorRequests(prev => prev ? prev + ' Failed to fetch sent requests.' : 'Failed to fetch sent requests.'); }
+    } catch (err) { console.error("Error fetching requests:", err); setErrorRequests('Network error or server unreachable.'); } finally { setLoadingRequests(false); }
+  }, []);
+
+  const fetchAllUsers = useCallback(async (keyword = '') => {
+    setLoadingAllUsers(true);
+    setErrorAllUsers(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const url = `${API_BASE_URL}/search/users${keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''}`;
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, });
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data && Array.isArray(data.users)) {
+          setAllUsers(data.users);
+        } else if (data && Array.isArray(data.data)) {
+          setAllUsers(data.data);
+        } else if (data && Array.isArray(data)) {
+          setAllUsers(data);
+        } else {
+          console.warn("Unexpected API response structure for all users:", data);
+          setAllUsers([]);
+          setErrorAllUsers('Unexpected data format from server for all users.');
+        }
+      } else {
+        setErrorAllUsers(data.msg || 'Failed to fetch all users.');
+        console.error("Backend Error Fetching All Users:", data);
+      }
+    } catch (err) {
+      console.error("Network or Client-side Error Fetching All Users:", err);
+      setErrorAllUsers('Network error or server unreachable.');
+    } finally {
+      setLoadingAllUsers(false);
+    }
+  }, []);
+
+  const fetchCurrentUserProfile = useCallback(async () => {
+    setLoadingProfile(true);
+    setErrorProfile(null);
+    try {
+      const token = await getToken();
+      if (!token) { setLoadingProfile(false); return; }
+
+      const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` }, });
+      const data = await response.json();
+      if (response.ok) {
+        if (data.user) {
+          setCurrentUserProfile(data.user);
+        } else { console.warn("API response for current user profile did not contain a 'user' object:", data); setErrorProfile('User data not found in profile response.'); }
+      } else {
+        setErrorProfile(data.msg || 'Failed to fetch user profile.'); console.error("Backend Error Fetching Current User Profile:", data);
+        if (response.status === 401 || response.status === 403) { Alert.alert('Session Expired', 'Your session has expired. Please log in again.'); navigation.navigate('Login'); }
+      }
+    } catch (err) { console.error("Error fetching current user profile:", err); setErrorProfile('Network error or server unreachable for profile.'); } finally { setLoadingProfile(false); }
+  }, []);
+
+  // --- Effect Hooks for Data Fetching ---
+
+  useEffect(() => {
+    if (isFocused) {
+      fetchCurrentUserProfile();
+      if (activeTab === 'chats') { fetchChats(); } else if (activeTab === 'friends') { fetchFriends(); } else if (activeTab === 'requests') { fetchRequests(); } else if (activeTab === 'allUsers') { fetchAllUsers(allUsersSearchQuery); }
+    }
+  }, [isFocused, activeTab, fetchChats, fetchFriends, fetchRequests, fetchAllUsers, fetchCurrentUserProfile]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (activeTab === 'allUsers') { fetchAllUsers(allUsersSearchQuery); }
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [allUsersSearchQuery, activeTab, fetchAllUsers]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchCurrentUserProfile();
+    if (activeTab === 'chats') await fetchChats();
+    else if (activeTab === 'friends') await fetchFriends();
+    else if (activeTab === 'requests') await fetchRequests();
+    else if (activeTab === 'allUsers') await fetchAllUsers(allUsersSearchQuery);
+    setRefreshing(false);
+  }, [activeTab, fetchChats, fetchFriends, fetchRequests, fetchAllUsers, fetchCurrentUserProfile, allUsersSearchQuery]);
+
+  // --- Interaction Handlers with API Calls ---
+
+  const handleFriendRequest = async (recipientId) => {
+    try {
+      const token = await getToken(); if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/chat/friends/request`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ recipientId }), });
+      const data = await response.json();
+      if (response.ok) { Alert.alert('Success', data.msg || 'Friend request sent!'); fetchAllUsers(allUsersSearchQuery); fetchRequests(); } else { Alert.alert('Error', data.msg || 'Failed to send friend request.'); console.error("Error sending friend request:", data); }
+    } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error sending friend request:", err); }
+  };
+
+  const handleAcceptRequest = async (requesterId) => {
+    try {
+      const token = await getToken(); if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/chat/friends/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ requesterId }), });
+      const data = await response.json();
+      if (response.ok) { Alert.alert('Success', data.msg || 'Friend request accepted!'); fetchRequests(); fetchFriends(); fetchChats(); fetchAllUsers(allUsersSearchQuery); } else { Alert.alert('Error', data.msg || 'Failed to accept request.'); console.error("Error accepting request:", data); }
+    } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error accepting request:", err); }
+  };
+
+  const handleRejectRequest = async (requesterId) => {
+    try {
+      const token = await getToken(); if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/chat/friends/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ requesterId }), });
+      const data = await response.json();
+      if (response.ok) { Alert.alert('Success', data.msg || 'Friend request rejected!'); fetchRequests(); fetchAllUsers(allUsersSearchQuery); } else { Alert.alert('Error', data.msg || 'Failed to reject request.'); console.error("Error rejecting request:", data); }
+    } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error rejecting request:", err); }
+  };
+
+  const handleWithdrawRequest = async (recipientId) => {
+    try {
+      const token = await getToken(); if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/chat/friends/withdraw`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ recipientId }), });
+      const data = await response.json();
+      if (response.ok) { Alert.alert('Success', data.msg || 'Friend request withdrawn!'); fetchRequests(); fetchAllUsers(allUsersSearchQuery); } else { Alert.alert('Error', data.msg || 'Failed to withdraw request.'); console.error("Error withdrawing request:", data); }
+    } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error withdrawing request:", err); }
+  };
+
+  const handleRemoveFriend = async (friendId) => {
+    Alert.alert("Remove Friend", "Are you sure you want to remove this friend?",
+      [{ text: "Cancel", style: "cancel" },
+      {
+        text: "Remove", onPress: async () => {
+          try {
+            const token = await getToken(); if (!token) return;
+            const response = await fetch(`${API_BASE_URL}/chat/friends/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, }, body: JSON.stringify({ friendId }), });
+            const data = await response.json();
+            if (response.ok) { Alert.alert('Success', data.msg || 'Friend removed.'); fetchFriends(); fetchChats(); fetchAllUsers(allUsersSearchQuery); } else { Alert.alert('Error', data.msg || 'Failed to remove friend.'); console.error("Error removing friend:", data); }
+          } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error removing friend:", err); }
+        }, style: "destructive"
+      }
+      ]);
+  };
+
+  const handleChatItemPress = (chatId, otherParticipantUsername) => {
+    Alert.alert('Chat Selected', `Opening chat with ${otherParticipantUsername}${chatId ? ` (Chat ID: ${chatId})` : ''}.`);
+    // Example: navigation.navigate('ChatScreen', { chatId: chatId, participantName: otherParticipantUsername });
+  };
+
+  // --- Helper to render user avatars using the file route ---
+  const renderAvatar = (avatarRelativePath) => {
+    if (avatarRelativePath) {
+      return { uri: `${API_BASE_URL}/file?path=${encodeURIComponent(avatarRelativePath)}` };
+    }
+    return UserAvatarPlaceholder;
+  };
+
+  // --- Function to truncate note for display ---
+  const truncateNote = (note, maxLength = 50) => {
+    if (!note) return '';
+    if (note.length <= maxLength) {
+      return note;
+    }
+    return note.substring(0, maxLength) + '...';
+  };
+
+  // --- Render Functions for Each Tab ---
+
+  const renderChatsTab = () => (
+    <View style={styles.tabContentContainer}>
+      <Text style={styles.chatsTitle}>Chats</Text>
+      {loadingChats ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorChats ? ( <Text style={styles.errorText}>Error: {errorChats}</Text> ) : chats.length === 0 ? ( <Text style={styles.noDataText}>You have no chats yet.</Text> ) : (
+        chats.map((chat) => (
+          chat.otherParticipant && (
+            <TouchableOpacity key={chat.chatId} style={styles.chatItem} onPress={() => handleChatItemPress(chat.chatId, chat.otherParticipant.username)} >
+              <Image source={renderAvatar(chat.otherParticipant.avatar)} style={styles.chatAvatar} />
+              <View style={styles.chatInfo}>
+                <Text style={styles.chatUsername}>{chat.otherParticipant.username}</Text>
+                <Text style={styles.chatLastMessage}>{chat.lastMessage ? chat.lastMessage.text : 'No messages yet'} {chat.lastMessage && ` : ${new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>
+              </View>
+            </TouchableOpacity>
+          )
+        ))
+      )}
+    </View>
+  );
+
+  const renderFriendsTab = () => (
+    <View style={styles.tabContentContainer}>
+      <Text style={styles.chatsTitle}>Your Friends</Text>
+      {loadingFriends ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorFriends ? ( <Text style={styles.errorText}>Error: {errorFriends}</Text> ) : friends.length === 0 ? ( <Text style={styles.noDataText}>You don't have any friends yet.</Text> ) : (
+        friends.map((friend) => (
+          <View key={friend._id} style={styles.friendItem}>
+            <Image source={renderAvatar(friend.avatar)} style={styles.friendAvatar} />
+            <View style={styles.userInfoAndNote}>
+              <Text style={styles.friendName}>{friend.username}</Text>
+              {friend.note && <Text style={styles.userNote}>{truncateNote(friend.note, 30)}</Text>}
+            </View>
+            <TouchableOpacity style={styles.chatFriendButton} onPress={() => handleChatItemPress(null, friend.username)}> <Text style={styles.friendActionButtonText}>Chat</Text> </TouchableOpacity>
+            <TouchableOpacity style={styles.removeFriendButton} onPress={() => handleRemoveFriend(friend._id)}> <Text style={styles.friendActionButtonText}>Remove</Text> </TouchableOpacity>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  const renderRequestsTab = () => (
+    <View style={styles.tabContentContainer}>
+      {loadingRequests ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorRequests ? ( <Text style={styles.errorText}>Error: {errorRequests}</Text> ) : (
+        <>
+          <Text style={styles.chatsTitle}>Received Requests</Text>
+          {receivedRequests.length === 0 ? ( <Text style={styles.noDataText}>No pending received requests.</Text> ) : (
+            receivedRequests.map((request) => (
+              <View key={request._id} style={styles.requestItem}>
+                <Image source={renderAvatar(request.requester?.avatar)} style={styles.requestAvatar} />
+                <View style={styles.userInfoAndNote}>
+                  <Text style={styles.requestName}>{request.requester?.username || 'Unknown User'}</Text>
+                  {request.requester?.note && <Text style={styles.userNote}>{truncateNote(request.requester.note, 30)}</Text>}
+                </View>
+                <TouchableOpacity style={styles.acceptButton} onPress={() => handleAcceptRequest(request.requester?._id)}> <Text style={styles.requestButtonText}>Accept</Text> </TouchableOpacity>
+                <TouchableOpacity style={styles.rejectButton} onPress={() => handleRejectRequest(request.requester?._id)}> <Text style={styles.requestButtonText}>Reject</Text> </TouchableOpacity>
+              </View>
+            ))
+          )}
+
+          <Text style={[styles.chatsTitle, { marginTop: 20 }]}>Sent Requests</Text>
+          {sentRequests.length === 0 ? ( <Text style={styles.noDataText}>No pending sent requests.</Text> ) : (
+            sentRequests.map((request) => (
+              <View key={request._id} style={styles.requestItem}>
+                <Image source={renderAvatar(request.recipient?.avatar)} style={styles.requestAvatar} />
+                <View style={styles.userInfoAndNote}>
+                  <Text style={styles.requestName}>{request.recipient?.username || 'Unknown User'}</Text>
+                  {request.recipient?.note && <Text style={styles.userNote}>{truncateNote(request.recipient.note, 30)}</Text>}
+                </View>
+                <TouchableOpacity style={styles.withdrawButton} onPress={() => handleWithdrawRequest(request.recipient?._id)}> <Text style={styles.requestButtonText}>Withdraw</Text> </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </>
+      )}
+    </View>
+  );
+
+  const renderAllUsersTab = () => (
+    <View style={styles.tabContentContainer}>
+      <Text style={styles.chatsTitle}>All Users</Text>
+      <View style={styles.searchContainerTab}>
+        <View style={styles.searchBox}>
+          <Image source={{ uri: SearchIconUrl }} style={styles.searchIcon} />
+          <TextInput style={styles.searchInput} placeholder="Search all users" placeholderTextColor="#888" value={allUsersSearchQuery} onChangeText={setAllUsersSearchQuery} />
+        </View>
+      </View>
+
+      {loadingAllUsers ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorAllUsers ? ( <Text style={styles.errorText}>Error: {errorAllUsers}</Text> ) : (
+        allUsers && allUsers.length > 0 ? (
+          allUsers.map((user) => {
+              const isCurrentUser = currentUserProfile && user._id === currentUserProfile._id;
+              const isFriend = friends.some(f => f._id === user._id);
+              const hasReceivedRequest = receivedRequests.some(r => r.requester?._id === user._id);
+              const hasSentRequest = sentRequests.some(s => s.recipient?._id === user._id);
+
+              return (
+                // --- WRAP THE ENTIRE USER CARD IN TOUCHABLEOPACITY ---
+                <TouchableOpacity
+                  key={user._id}
+                  style={styles.userItem}
+                  onPress={() => navigation.navigate('UserInfoScreen', { userId: user._id })}
+                  disabled={isCurrentUser} // Disable navigation if it's the current user
+                >
+                  <Image source={renderAvatar(user.avatar)} style={styles.userAvatar} />
+                  <View style={styles.userInfoAndNote}>
+                    <Text style={styles.userName}>
+                      {user.username} {isCurrentUser && <Text style={styles.selfText}>(Self)</Text>}
+                    </Text>
+                    {user.note && <Text style={styles.userNote}>{truncateNote(user.note, 30)}</Text>}
+                  </View>
+                  {!isCurrentUser && (
+                    <View style={styles.userItemActions}>
+                      {isFriend ? (
+                        <>
+                          <TouchableOpacity style={styles.removeFriendButton} onPress={() => handleRemoveFriend(user._id)}>
+                            <Text style={styles.friendActionButtonText}>Remove</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.chatButton} onPress={() => handleChatItemPress(null, user.username)}>
+                            <Text style={styles.chatButtonText}>Chat</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : hasReceivedRequest ? (
+                        <Text style={styles.statusText}>Incoming Request</Text>
+                      ) : hasSentRequest ? (
+                        <Text style={styles.statusText}>Request Sent</Text>
+                      ) : (
+                        <TouchableOpacity style={styles.addUserButton} onPress={() => handleFriendRequest(user._id)}>
+                          <Text style={styles.addUserButtonText}>Add Friend</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })
+        ) : (
+          allUsersSearchQuery.length > 0 ? ( <Text style={styles.noDataText}>No users match your search.</Text> ) : ( <Text style={styles.noDataText}>No users available.</Text> )
+        )
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.appContainer}>
-        {/* Header Spacer: This acts as a top padding/background to match the web version's body background. */}
-        <View style={styles.headerSpacer}></View>
+        {/* Header Spacer for iOS Notch */}
+        <View style={styles.headerSpacer} />
 
-        {/* Header Content: Displays the user's name and the app logo. */}
+        {/* Header Content with User Profile */}
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Cheerawit Keerati</Text>
-          <Image source={images.logo} style={styles.headerLogo} />
+          <Text style={styles.headerTitle}>
+            {loadingProfile ? 'Loading...' : errorProfile ? 'User Profile Error' : currentUserProfile?.username || 'Guest User'}
+          </Text>
+          <Image
+            source={renderAvatar(currentUserProfile?.avatar)}
+            style={styles.headerLogo}
+          />
         </View>
 
-        {/* Search Container: Holds the search input field. */}
-        <View style={styles.searchContainer}>
+        {/* Top Search Bar (general search, not specific to 'All Users' tab) */}
+        <View style={styles.topSearchContainer}>
           <View style={styles.searchBox}>
-            <Image source={images.searchIcon} style={styles.searchIcon} />
+            <Image source={{ uri: SearchIconUrl }} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Searching Friends"
+              placeholder="Searching Friends..."
               placeholderTextColor="#888"
-              value={searchText}
-              onChangeText={setSearchText}
             />
           </View>
         </View>
 
-        {/*
-          Status Bar Container (Horizontal ScrollView):
-          This section is commented out because replicating its exact HTML styling (especially the absolute-positioned avatars
-          within a horizontally scrolling view) is complex in React Native and can lead to layout inconsistencies or clipping.
-          If you need this feature, uncomment it and adjust its styles carefully.
-        */}
-        {/*
-        <View style={styles.statusBarContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusBar}>
-            {statusItems.map(status => (
-              <View key={status.id} style={styles.status}>
-                <Text>{status.name}</Text>
-                <Image source={status.avatar} style={styles.statusAvatar} />
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-        */}
+        {/* Tab Navigation for content */}
+        <View style={styles.contentTabBar}>
+          <TouchableOpacity
+            style={[styles.contentTabButton, activeTab === 'chats' && styles.activeContentTabButton]}
+            onPress={() => setActiveTab('chats')}
+          >
+            <Text style={[styles.contentTabButtonText, activeTab === 'chats' && styles.activeContentTabButtonText]}>Chats</Text>
+          </TouchableOpacity>
 
-        {/* Chats Section: Displays a scrollable list of chat items. */}
-        <ScrollView style={styles.chatsContainer} contentContainerStyle={styles.chatsContent}>
-          <Text style={styles.chatsHeader}>Chats</Text>
-          {chatItems.map(chat => (
-            <TouchableOpacity
-              key={chat.id}
-              style={styles.chatItem}
-              onPress={() => handleChatItemPress(chat.id)}
-            >
-              <Image source={chat.avatar} style={styles.chatItemAvatar} />
-              <View style={styles.chatInfo}>
-                <Text style={styles.chatInfoName}>{chat.name}</Text>
-                <Text style={styles.chatInfoLastMessage}>{chat.lastMessage} : {chat.time}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            style={[styles.contentTabButton, activeTab === 'friends' && styles.activeContentTabButton]}
+            onPress={() => setActiveTab('friends')}
+          >
+            <Text style={[styles.contentTabButtonText, activeTab === 'friends' && styles.activeContentTabButtonText]}>Friends</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.contentTabButton, activeTab === 'requests' && styles.activeContentTabButton]}
+            onPress={() => setActiveTab('requests')}
+          >
+            <Text style={[styles.contentTabButtonText, activeTab === 'requests' && styles.activeContentTabButtonText]}>Requests</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.contentTabButton, activeTab === 'allUsers' && styles.activeContentTabButton]}
+            onPress={() => setActiveTab('allUsers')}
+          >
+            <Text style={[styles.contentTabButtonText, activeTab === 'allUsers' && styles.activeContentTabButtonText]}>All Users</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Scrollable Tab Content */}
+        <ScrollView
+          style={styles.scrollViewContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#000d63" />
+          }
+        >
+          {activeTab === 'chats' && renderChatsTab()}
+          {activeTab === 'friends' && renderFriendsTab()}
+          {activeTab === 'requests' && renderRequestsTab()}
+          {activeTab === 'allUsers' && renderAllUsersTab()}
+          {/* Add padding at the bottom of the scroll view to prevent bottom nav overlap */}
+          <View style={{ height: 80 }} />
         </ScrollView>
+      </View>
 
-        {/* Bottom Navigation Bar: Consistent navigation across your app. */}
-        <View style={styles.navBar}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-            <Image source={images.homeIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>HOME</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
-            <Image source={images.quizIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>QUIZ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
-            <Image source={images.lessonIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>LESSON</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
-            <Image source={images.postIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>POST</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
-            <Image source={images.chatfeedIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>CHAT</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-            <Image source={images.profileIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>PROFILE</Text>
-          </TouchableOpacity>
-        </View>
+      {/* --- Bottom Navigation Bar --- */}
+      <View style={styles.navBar}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
+          <Image source={require('../assets/home.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>HOME</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
+          <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>QUIZ</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
+          <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>LESSON</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
+          <Image source={require('../assets/post.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>POST</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
+          <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>CHAT</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+          <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>PROFILE</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -159,15 +527,14 @@ export default function ChatFeed() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000d63', // Matches the original HTML body background
+    backgroundColor: '#000d63',
   },
   appContainer: {
     flex: 1,
     backgroundColor: 'white',
-    flexDirection: 'column',
   },
   headerSpacer: {
-    height: 60,
+    height: Platform.OS === 'ios' ? 60 : 0,
     backgroundColor: '#000d63',
   },
   headerContent: {
@@ -175,121 +542,323 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#000d63',
   },
   headerLogo: {
     width: 40,
     height: 40,
-    resizeMode: 'contain', // Ensures the whole logo is visible
+    borderRadius: 20,
+    resizeMode: 'cover',
+    backgroundColor: '#e0e0e0',
   },
-  searchContainer: {
+  topSearchContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 15,
+    marginVertical: 15,
   },
   searchBox: {
     backgroundColor: '#f2f2f2',
-    borderRadius: 20,
+    borderRadius: 25,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 15,
-    width: '90%', // Occupies 90% of parent width
+    width: '90%',
+    borderColor: '#ddd',
+    borderWidth: 1,
   },
   searchIcon: {
     width: 20,
     height: 20,
     resizeMode: 'contain',
+    tintColor: '#555',
   },
   searchInput: {
-    flexGrow: 1, // Allows input to take up remaining space
-    fontSize: 14,
+    flex: 1,
+    fontSize: 15,
     paddingLeft: 10,
-    color: '#000', // Ensures text is visible
+    paddingVertical: 0,
+    color: '#000',
   },
-  // Styles for the Status Bar section (currently commented out in JSX)
-  statusBarContainer: {
-    paddingBottom: 40,
+  contentTabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
   },
-  statusBar: {
-    paddingHorizontal: 10,
-    gap: 15, // Requires React Native 0.71+ for gap property
-  },
-  status: {
-    backgroundColor: '#f2f2f2',
-    padding: 10,
+  contentTabButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
     borderRadius: 20,
-    minWidth: 140,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 10, // Added space for potential absolute avatar
   },
-  statusAvatar: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5, // Half of width/height for a circle
-    position: 'absolute',
-    bottom: -25, // Adjust as needed
-    left: '50%',
-    marginLeft: -22.5, // Negative half of width/height to truly center with left: '50%'
-    borderWidth: 2,
-    borderColor: 'white',
+  activeContentTabButton: {
+    backgroundColor: '#000d63',
   },
-  // End of Status Bar styles
-
-  chatsContainer: {
-    flex: 1, // Allows the chat list to scroll and fill available space
-    paddingHorizontal: 15,
-    // Add padding to the bottom to ensure content isn't hidden by the fixed navigation bar
-    paddingBottom: Platform.OS === 'ios' ? 90 : 70, // Adjust for iOS notch vs Android
+  contentTabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
   },
-  chatsContent: {
-    // Optional: Add padding to content within the scroll view if needed
+  activeContentTabButtonText: {
+    color: '#fff',
   },
-  chatsHeader: {
-    color: '#000d63',
-    fontSize: 20,
-    marginBottom: 15,
+  scrollViewContent: {
+    flex: 1,
+  },
+  tabContentContainer: {
+    padding: 15,
+  },
+  loadingIndicator: {
+    marginTop: 50,
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+    color: '#dc3545',
     fontWeight: 'bold',
+  },
+  noDataText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
+  },
+  chatsTitle: {
+    color: '#000d63',
+    fontSize: 22,
+    marginBottom: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12, // Requires React Native 0.71+
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 10, // Margin between chat items
-    // Add shadow properties for a subtle lift effect if desired
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 1 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 2,
-    // elevation: 2, // For Android shadow
+    gap: 15,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  chatItemAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25, // For a circular avatar
+  chatAvatar: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#e0e0e0',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   chatInfo: {
     flexDirection: 'column',
-    flex: 1, // Allows chat info to take remaining space horizontally
+    flex: 1,
   },
-  chatInfoName: {
-    fontSize: 15,
+  chatUsername: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#333',
   },
-  chatInfoLastMessage: {
-    fontSize: 14,
-    color: '#555', // Muted color for the last message
+  chatLastMessage: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 2,
   },
-
-  // Bottom Navigation Bar styles - copied directly from HomeScreen.js for consistency
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 15,
+    backgroundColor: '#e0e0e0',
+  },
+  userInfoAndNote: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  friendName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  chatFriendButton: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 15,
+    marginLeft: 'auto',
+  },
+  removeFriendButton: {
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 15,
+    marginLeft: 8,
+  },
+  friendActionButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  requestItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  requestAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 15,
+    backgroundColor: '#e0e0e0',
+  },
+  requestName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  acceptButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginLeft: 'auto',
+  },
+  rejectButton: {
+    backgroundColor: '#6c757d',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginLeft: 8,
+  },
+  withdrawButton: {
+    backgroundColor: '#ffc107',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginLeft: 'auto',
+  },
+  requestButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  userItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  userAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
+    backgroundColor: '#e0e0e0',
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 3,
+  },
+  userNote: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 3,
+  },
+  selfText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    fontWeight: 'normal',
+  },
+  statusText: {
+    fontSize: 13,
+    color: '#555',
+    fontStyle: 'italic',
+    marginLeft: 'auto',
+  },
+  userItemActions: {
+    marginLeft: 'auto',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  addUserButton: {
+    backgroundColor: '#000d63',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    marginBottom: 5, // Space between Add Friend and Chat
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  chatButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  addUserButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  chatButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
   navBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -298,26 +867,13 @@ const styles = StyleSheet.create({
     height: 60,
     borderTopColor: '#ccc',
     borderTopWidth: 1,
-    position: 'absolute', // Fixed position at the bottom
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0, // Adds padding for iPhone's safe area
+    paddingBottom: Platform.OS === 'ios' ? 10 : 0,
   },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1, // Distributes space evenly among items
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-    resizeMode: 'contain',
-  },
-  navText: {
-    fontSize: 11,
-    color: '#000d63',
-    fontWeight: '500',
-  },
+  navItem: { alignItems: 'center', justifyContent: 'center' },
+  navIcon: { width: 24, height: 24, marginBottom: 2 },
+  navText: { fontSize: 11, color: '#000d63', fontWeight: '500' }
 });

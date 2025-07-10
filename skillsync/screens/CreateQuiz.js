@@ -21,11 +21,12 @@ import { Picker } from '@react-native-picker/picker';
 import { AntDesign } from '@expo/vector-icons'; // For plus/delete icons
 
 // --- Configuration ---
-const API_BASE = 'http://192.168.222.1:6000'; // **REMEMBER TO REPLACE THIS WITH YOUR ACTUAL BACKEND IP ADDRESS**
+const API_BASE = 'http://192.168.41.31:6000'; // **IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND IP ADDRESS**
 const { width } = Dimensions.get('window');
 
-const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History', 'Music'];
+const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History', 'Music', 'Art'];
 const GRADES = Array.from({ length: 6 }, (_, i) => String(i + 7)); // Grades 7 to 12
+const QUIZ_LEVELS = ['Easy', 'Medium', 'Hard']; // Quiz difficulty levels
 
 // Helper for unique IDs for questions/options (client-side only for rendering)
 let nextQuestionId = 0;
@@ -36,6 +37,7 @@ export default function CreateQuiz() {
   const [quizTitle, setQuizTitle] = useState('');
   const [quizSubject, setQuizSubject] = useState(SUBJECTS[0]);
   const [quizGrade, setQuizGrade] = useState(GRADES[0]);
+  const [quizLevel, setQuizLevel] = useState(QUIZ_LEVELS[0]); // New state for quiz level
   const [coverImageFile, setCoverImageFile] = useState(null); // Stores local URI for upload
   const [coverImagePath, setCoverImagePath] = useState(null); // Stores backend path after upload/fetch (not used for *creation* but useful for edit forms)
 
@@ -199,6 +201,9 @@ export default function CreateQuiz() {
     if (!quizGrade) {
       return Alert.alert('Validation Error', 'Please select a grade.');
     }
+    if (!quizLevel) { // New validation for quiz level
+      return Alert.alert('Validation Error', 'Please select a quiz level (Easy, Medium, Hard).');
+    }
     if (questions.length === 0) {
       return Alert.alert('Validation Error', 'Please add at least one question.');
     }
@@ -233,7 +238,8 @@ export default function CreateQuiz() {
     const formData = new FormData();
     formData.append('title', quizTitle);
     formData.append('subject', quizSubject);
-    formData.append('grade', quizGrade); // Grade is already a string in state
+    formData.append('grade', quizGrade);
+    formData.append('level', quizLevel); // Append the new level field
 
     // Append cover image if selected
     if (coverImageFile) {
@@ -291,7 +297,8 @@ export default function CreateQuiz() {
       }
 
       const result = await response.json();
-      Alert.alert('Success', 'Quiz created successfully!');
+      // Display the quizId to the user
+      Alert.alert('Success', `Quiz created successfully!\n\nQuiz ID: ${result.quizId}`);
       console.log('Quiz created:', result);
       navigation.goBack(); // Or navigate to QuizDetail screen
     } catch (error) {
@@ -361,6 +368,21 @@ export default function CreateQuiz() {
               >
                 {GRADES.map((g) => (
                   <Picker.Item key={g} label={`Grade ${g}`} value={g} />
+                ))}
+              </Picker>
+            </View>
+
+            {/* NEW: Quiz Level Picker */}
+            <Text style={styles.label}>Quiz Level:</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={quizLevel}
+                onValueChange={(itemValue) => setQuizLevel(itemValue)}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {QUIZ_LEVELS.map((l) => (
+                  <Picker.Item key={l} label={l} value={l} />
                 ))}
               </Picker>
             </View>

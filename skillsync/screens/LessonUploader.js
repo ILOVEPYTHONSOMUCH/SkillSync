@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Platform, // Import Platform for iOS safe area
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,9 +18,9 @@ import { Picker } from '@react-native-picker/picker';
 // IMPORTANT: In a real application, you should move this API_BASE URL
 // into an environment variable (e.g., using 'react-native-config' or 'dotenv')
 // rather than hardcoding it directly in your code.
-const API_BASE = 'http://192.168.222.1:6000';
+const API_BASE = 'http://192.168.41.31:6000'; // Ensure this IP is correct for your local setup
 
-export default function LessonUploader({ navigation }) {
+export default function LessonUploader({ navigation }) { // Ensure 'navigation' prop is destructured
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -266,6 +267,34 @@ export default function LessonUploader({ navigation }) {
           />
         </View>
       </ScrollView>
+
+      {/* Navigation Bar Footer */}
+      <View style={styles.navBar}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
+          <Image source={require('../assets/home.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>HOME</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
+          <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>QUIZ</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
+          <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>LESSON</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
+          <Image source={require('../assets/post.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>POST</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
+          <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>CHAT</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+          <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
+          <Text style={styles.navText}>PROFILE</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -274,7 +303,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   topSection: {
     backgroundColor: '#00125a',
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'android' ? 24 : 40, // Adjust for status bar on Android/iOS
     paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -324,7 +353,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 80, // Ensure enough space at the bottom for scrolling
+    paddingBottom: 80, // Ensure enough space at the bottom for the fixed navBar
     alignItems: 'stretch',
   },
   subjectRow: {
@@ -390,7 +419,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Styles for multiple Quiz IDs Input
-  quizIdsInputContainer: { // Changed name to reflect multiple IDs
+  quizIdsInputContainer: {
     width: '100%',
     backgroundColor: '#f8f9fa',
     padding: 16,
@@ -402,19 +431,56 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  quizIdsLabel: { // Changed name to reflect multiple IDs
+  quizIdsLabel: {
     fontWeight: 'bold',
     color: '#00125a',
     marginBottom: 8,
   },
-  quizIdsInput: { // Changed name to reflect multiple IDs
+  quizIdsInput: {
     borderColor: '#ddd',
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
-    minHeight: 60, // Give it more space for multiple lines
-    textAlignVertical: 'top', // Align text to the top for multiline input
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+
+  // --- Navigation Bar Styles ---
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    height: 60,
+    borderTopColor: '#ccc',
+    borderTopWidth: 1,
+    position: 'absolute', // Position the navbar at the bottom
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 0, // Add padding for iPhone X series safe area
+    shadowColor: '#000', // Optional: Add shadow to navbar
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 10,
+  },
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1, // Distribute items evenly
+  },
+  navIcon: {
+    width: 24,
+    height: 24,
+    marginBottom: 2,
+    resizeMode: 'contain',
+  },
+  navText: {
+    fontSize: 11,
+    color: '#000d63',
+    fontWeight: '500',
   },
 });

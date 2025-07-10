@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 
-const API_BASE = 'http://192.168.222.1:6000';
+const API_BASE = 'http://192.168.41.31:6000';
 const { width } = Dimensions.get('window');
 const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History'];
 
