@@ -1,126 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quiz Game</title>
   <style>
     body {
       margin: 0;
-      font-family: 'Arial Rounded MT Bold', sans-serif;
-      background: #ffffff;
+      font-family: 'Prompt', sans-serif;
+      background-color: white;
+      color: #000;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
-    .header {
-      background: #090963;
-      color: white;
-      padding: 20px;
-      font-size: 24px;
-      font-weight: bold;
+
+    .quiz-header {
+      background-color: #0c1d63;
+      height: 40px;
     }
-    .quiz-title-container {
+
+    .quiz-info {
+      padding: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px;
-    }
-    .quiz-title {
-      font-size: 36px;
-      color: #090963;
-      margin-right: 10px;
-    }
-    .logo {
-      height: 36px;
-      object-fit: contain;
-    }
-    .progress-container {
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      position: relative;
-    }
-    .progress-bar {
-      flex: 1;
-      height: 10px;
-      background: #ddd;
-      border-radius: 5px;
-      overflow: hidden;
-      margin-right: 10px;
-      position: relative;
-    }
-    .progress-fill {
-      height: 100%;
-      background: orange;
-      width: 80%;
-      position: relative;
-    }
-    .points {
-      font-size: 14px;
-      color: #555;
-    }
-    .quiz-box {
-      background: #fff;
-      border: 2px solid #000;
-      border-radius: 15px;
-      padding: 15px;
-      margin: 20px;
-    }
-    .question {
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .blanks {
-      margin-top: 10px;
-      font-size: 16px;
-    }
-    .blanks input {
-      width: 60px;
-      height: 30px;
-      border: 2px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-      text-align: center;
-      background-color: #ffffff;
-      transition: transform 0.2s ease;
-    }
-    .blanks input:hover {
-      transform: scale(1.2);
-    }
-    .answer-options {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 15px;
-      margin: 20px;
-    }
-    .answer {
-      background: #ffdcdc;
-      padding: 15px 25px;
-      border-radius: 15px;
-      font-size: 20px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: transform 0.2s ease;
-    }
-    .answer:hover {
-      transform: scale(1.2);
-    }
-    .check-btn {
-      background: #44d100;
-      color: white;
-      font-size: 20px;
-      padding: 15px 30px;
-      border: none;
-      border-radius: 15px;
-      cursor: pointer;
-      margin: 20px auto;
-      display: block;
-      font-weight: bold;
-      transition: transform 0.2s ease;
-    }
-    .check-btn:hover {
-      transform: scale(1.1);
     }
 
+    .quiz-info .title {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .quiz-info .level {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .progress-bar {
+      width: 150px;
+      height: 6px;
+      background: #e5e5e5;
+      border-radius: 3px;
+      margin-top: 4px;
+      position: relative;
+    }
+
+    .progress-bar .fill {
+      background-color: orange;
+      width: 80%;
+      height: 100%;
+      border-radius: 3px;
+    }
+
+    .star {
+      position: absolute;
+      right: 0;
+      top: -8px;
+      width: 20px;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .question {
+      font-weight: bold;
+      margin-bottom: 20px;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .answers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .option {
+      padding: 16px;
+      text-align: center;
+      border-radius: 12px;
+      color: white;
+      font-weight: bold;
+      font-size: 18px;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .option:hover {
+      transform: scale(1.1);
+      box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .option.a { background-color: #133a84; }
+    .option.b { background-color: #42bdd8; }
+    .option.c { background-color: #f49d9c; }
+    .option.d { background-color: #fcb383; }
+
+    .check-button {
+      margin-top: 30px;
+      text-align: center;
+    }
+
+    .check-button button {
+      background-color: #66cc33;
+      color: white;
+      font-size: 18px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 12px;
+      font-weight: bold;
+      box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
+      transition: background 0.3s ease;
+    }
+
+    .check-button button:hover {
+      background-color: #5cb82c;
+    }
     .nav-bar {
       position: fixed;
       bottom: 0;
@@ -159,59 +162,43 @@
   </style>
 </head>
 <body>
-  <div class="header">ENGLISH QUIZ</div>
-  <div class="quiz-title-container">
-    <span class="quiz-title">Quiz</span>
-    <img class="logo" src="SkillSyncLogo.png" alt="Logo" />
-  </div>
+  <div class="quiz-header"></div>
 
-  <div class="progress-container">
-    <div class="progress-bar" id="progressBar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div class="points">2000 points</div>
-  </div>
-
-  <div class="quiz-box">
-    <div class="question">8. จงเติม verb to be ในช่องว่างต่อไปนี้</div>
-    <div class="blanks">
-      1. I <input type="text" value="am" readonly /> washing the dishes in the kitchen now.<br />
-      2. My mother and I <input type="text" /> watching TV now.<br />
-      3. Tyrun and Dino <input type="text" /> studying English now.<br />
-      4. The boys <input type="text" /> playing football.<br />
-      5. The dog and the cat <input type="text" /> running into the house now.<br />
-      6. A boy <input type="text" /> crying now.
+  <div class="quiz-info">
+    <div class="title">Quiz</div>
+    <div class="level">
+      <div>Level 8</div>
+      <div class="progress-bar">
+        <div class="fill"></div>
+        <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" class="star">
+      </div>
+      <div style="font-size: 14px;">2000 points</div>
     </div>
   </div>
 
-  <div class="answer-options">
-    <div class="answer">Is</div>
-    <div class="answer">Am</div>
-    <div class="answer">Are</div>
-    <div class="answer">Are</div>
-    <div class="answer">Are</div>
-    <div class="answer">Are</div>
-  </div>
+  <div class="container">
+    <div class="question">
+      8. คลื่นต่อเนื่องในเส้นเชือกมีความเร็ว 4 เมตร/วินาที ถ้าวัดระยะห่างระหว่างสันคลื่นถึงท้องคลื่นที่อยู่ติดกันได้ 0.1 เมตร คลื่นนี้มีความถี่เท่าใด?
+    </div>
 
-  <button class="check-btn">Check the answers</button>
+    <div class="answers">
+      <div class="option a">A. 20 เมตร</div>
+      <div class="option b">B. 30 เมตร</div>
+      <div class="option c">C. 25 เมตร</div>
+      <div class="option d">D. 40 เมตร</div>
+    </div>
+
+    <div class="check-button">
+      <button onclick="checkAnswer()">Check the answers</button>
+    </div>
+  </div>
 
   <script>
-    const answers = document.querySelectorAll('.answer');
-    let selectedIndex = 0;
-    const inputs = document.querySelectorAll('.blanks input');
-    inputs.forEach((input, i) => {
-      if (input.value !== 'am') input.addEventListener('click', () => selectedIndex = i);
-    });
-
-    answers.forEach(el => {
-      el.addEventListener('click', () => {
-        if (inputs[selectedIndex].value === 'am') return;
-        inputs[selectedIndex].value = el.textContent;
-      });
-    });
+    function checkAnswer() {
+      alert("เฉลย: ความถี่ = ความเร็ว / ความยาวคลื่น \nระยะจากสันถึงท้องคือ \u03bb/2 = 0.1 เมตร ดังนั้น \u03bb = 0.2 เมตร \n\nf = 4 / 0.2 = 20 Hz\n\nคำตอบคือ A. 20 เมตร");
+    }
   </script>
-
-<div class="nav-bar">
+  <div class="nav-bar">
     <div class="nav-item">
         <img src="home.png" alt="Home" />
         <div>HOME</div>
@@ -236,7 +223,5 @@
        <img src="Sign-in.png" alt="profile-img" />
        <div>PROFILE</div>
      </div>
-</div>
-
 </body>
 </html>
