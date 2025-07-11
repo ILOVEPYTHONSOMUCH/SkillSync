@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { AntDesign, Feather } from '@expo/vector-icons'; // Added Feather for eye icon
+import { AntDesign, Feather } from '@expo/vector-icons';
 
-const API_BASE = 'http://192.168.41.31:6000'; // Make sure this is your correct backend IP
+const API_BASE = 'http://192.168.41.31:6000'; // RESTORED: Your original backend IP
 
 export default function LessonScreen() {
     const [lessons, setLessons] = useState([]);
@@ -25,21 +25,23 @@ export default function LessonScreen() {
     const [userGrade, setUserGrade] = useState(null);
     const [loadingUser, setLoadingUser] = useState(true);
     const [loadingLessons, setLoadingLessons] = useState(false);
+    const [lessonEngagement, setLessonEngagement] = useState({});
+
     const navigation = useNavigation();
 
     const fetchLessonsAndUser = useCallback(async () => {
         setLoadingUser(true);
         setLoadingLessons(true);
         let fetchedGrade = null;
+        let token = null;
 
-        // 1. Fetch User Profile to get grade
+        // 1. Fetch User Profile to get grade and token
         try {
-            const token = await AsyncStorage.getItem('userToken');
+            token = await AsyncStorage.getItem('userToken');
             if (!token) {
                 Alert.alert('Authentication Required', 'Please log in to view lessons.');
                 setLoadingUser(false);
                 setLoadingLessons(false);
-                setUserGrade(null);
                 setLessons([]);
                 return;
             }
@@ -61,7 +63,7 @@ export default function LessonScreen() {
             }
         } catch (e) {
             console.error("Error fetching user info:", e);
-            Alert.alert('Error', 'Cannot load user info. Please check your network connection.');
+            Alert.alert('Error', 'Cannot load user info. Please check your network connection or try again later.');
             setLoadingUser(false);
             setLoadingLessons(false);
             setUserGrade(null);
@@ -74,14 +76,7 @@ export default function LessonScreen() {
         // 2. Fetch Lessons using the fetched grade
         if (fetchedGrade != null) {
             try {
-                const token = await AsyncStorage.getItem('userToken');
-                if (!token) {
-                    Alert.alert('Authentication Required', 'Please log in to view lessons.');
-                    setLoadingLessons(false);
-                    setLessons([]);
-                    return;
-                }
-                // Using the /api/search/:type route now
+                // RESTORED: Original lesson fetching path, no search query here
                 const res = await fetch(
                     `${API_BASE}/api/search/lessons?grade=${fetchedGrade}`,
                     {
@@ -90,25 +85,46 @@ export default function LessonScreen() {
                 );
                 const data = await res.json();
                 if (Array.isArray(data)) {
-                    // Sort lessons: newest first (assuming _id or a 'createdAt' field is chronological)
-                    const sortedLessons = [...data].sort((a, b) => b._id.localeCompare(a._id));
+                    const sortedLessons = [...data].sort((a, b) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                        return dateB - dateA;
+                    });
                     setLessons(sortedLessons);
+
+                    // Initialize lessonEngagement based on fetched lessons
+                    const initialEngagement = {};
+                    sortedLessons.forEach(lesson => {
+                        initialEngagement[lesson._id] = {
+                            isLiked: lesson.isLiked || false,
+                            isDisliked: lesson.isDisliked || false,
+                            likesCount: lesson.likesCount || 0,
+                            dislikesCount: lesson.dislikesCount || 0,
+                            commentsCount: lesson.commentsCount || 0,
+                            viewsCount: lesson.viewsCount || 0
+                        };
+                    });
+                    setLessonEngagement(initialEngagement);
+
                 } else {
                     console.warn('Expected lessons array, got:', data);
                     setLessons([]);
+                    setLessonEngagement({});
                 }
             } catch (e) {
                 console.error("Error fetching lessons:", e);
                 Alert.alert('Error', 'Cannot load lessons. Please try again later.');
                 setLessons([]);
+                setLessonEngagement({});
             } finally {
                 setLoadingLessons(false);
             }
         } else {
             setLoadingLessons(false);
             setLessons([]);
+            setLessonEngagement({});
         }
-    }, []);
+    }, []); // fetchLessonsAndUser no longer depends on 'search' directly, as search is now local
 
     useFocusEffect(
         useCallback(() => {
@@ -116,6 +132,91 @@ export default function LessonScreen() {
         }, [fetchLessonsAndUser])
     );
 
+    // REMOVED: The useEffect for debouncing search, as search is now handled locally by 'filtered'
+
+    const handleLikeDislike = async (lessonId, actionType) => {
+        const token = await AsyncStorage.getItem('userToken');
+        if (!token) {
+            Alert.alert('Authentication Required', 'Please log in to interact.');
+            return;
+        }
+
+        const currentEngagement = lessonEngagement[lessonId] || { isLiked: false, isDisliked: false, likesCount: 0, dislikesCount: 0 };
+        let { isLiked, isDisliked, likesCount, dislikesCount } = currentEngagement;
+
+        let optimisticUpdate = {};
+        if (actionType === 'like') {
+            if (isLiked) {
+                isLiked = false;
+                likesCount = Math.max(0, likesCount - 1);
+            } else {
+                isLiked = true;
+                likesCount += 1;
+                if (isDisliked) {
+                    isDisliked = false;
+                    dislikesCount = Math.max(0, dislikesCount - 1);
+                }
+            }
+        } else if (actionType === 'dislike') {
+            if (isDisliked) {
+                isDisliked = false;
+                dislikesCount = Math.max(0, dislikesCount - 1);
+            } else {
+                isDisliked = true;
+                dislikesCount += 1;
+                if (isLiked) {
+                    isLiked = false;
+                    likesCount = Math.max(0, likesCount - 1);
+                }
+            }
+        }
+
+        setLessonEngagement(prevEngagement => ({
+            ...prevEngagement,
+            [lessonId]: { ...prevEngagement[lessonId], isLiked, isDisliked, likesCount, dislikesCount }
+        }));
+
+        const endpoint = `${API_BASE}/api/lesson/${lessonId}/${actionType}`;
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                Alert.alert('Error', errorData.message || `Failed to ${actionType} lesson.`);
+                setLessonEngagement(prevEngagement => ({
+                    ...prevEngagement,
+                    [lessonId]: currentEngagement
+                }));
+            } else {
+                const responseData = await res.json();
+                setLessonEngagement(prevEngagement => ({
+                    ...prevEngagement,
+                    [lessonId]: {
+                        ...prevEngagement[lessonId],
+                        likesCount: responseData.likesCount,
+                        dislikesCount: responseData.dislikesCount,
+                        isLiked: responseData.isLiked,
+                        isDisliked: responseData.isDisliked,
+                    }
+                }));
+            }
+        } catch (e) {
+            console.error(`Error during ${actionType} action:`, e);
+            Alert.alert('Network Error', `Could not ${actionType} lesson. Please check your connection.`);
+            setLessonEngagement(prevEngagement => ({
+                ...prevEngagement,
+                [lessonId]: currentEngagement
+            }));
+        }
+    };
+
+    // RESTORED: The 'filtered' variable definition for local search
     const filtered = lessons.filter(item => {
         const text = `${item.title || ''} ${item.subject || ''} ${item.user?.username || ''}`.toLowerCase();
         return text.includes(search.toLowerCase());
@@ -127,26 +228,32 @@ export default function LessonScreen() {
             : null;
 
     const handleLessonPress = (lesson) => {
-        navigation.navigate('WatchScreen', { lessonData: lesson });
+        if (lesson && lesson._id) {
+            console.log("Navigating to WatchInfo with contentId:", lesson._id);
+            navigation.navigate('WatchInfo', { contentId: lesson._id, contentType: 'lesson' });
+        } else {
+            console.warn("Attempted to navigate without a valid lesson ID:", lesson);
+            Alert.alert(
+                "Navigation Error",
+                "Cannot open lesson: The lesson ID is missing. Please try again later or contact support if the issue persists."
+            );
+        }
+    };
+
+    const formatLessonDate = (dateString) => {
+        if (!dateString) return '';
+        const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        try {
+            return new Date(dateString).toLocaleDateString(undefined, options);
+        } catch (e) {
+            console.error("Error formatting date:", dateString, e);
+            return dateString;
+        }
     };
 
     const { width } = Dimensions.get('window');
-    // Calculate thumbnail height. If you want a fixed 16:9 aspect ratio for the *thumbnail image*
-    // inside a container that's 90% of screen width, the calculation is correct.
-    // However, if the "rectangle" you refer to is the thumbnailContainer, and you want the *image* to
-    // fit inside it perfectly, you need to set the resizeMode on the Image component.
-    // The current setup ensures the `thumbnailContainer` is always 16:9.
-    // To ensure the image *fits within* this frame, `resizeMode="cover"` is the correct approach as you have it.
-    // If you want the *entire image to be visible* within the frame, possibly with letterboxing, then `resizeMode="contain"` would be used.
-    // Since you said "fit in the old frame no need for adjust because it looks terrible",
-    // `cover` is generally preferred for thumbnails to avoid empty space, cropping the image if necessary.
-
-    // Let's ensure the thumbnailHeight is correctly calculated based on the `card` width.
-    // The `card` width is `width * 0.9`. The `thumbnailContainer` width is '100%' of the card width.
-    // So, `thumbnailContainer` width = `width * 0.9`.
-    // For a 16:9 aspect ratio (common for videos), height = width * (9 / 16).
-    const cardContentWidth = width * 0.9; // This is the width of the card's content area
-    const thumbnailHeight = cardContentWidth * (9 / 16); // Calculate height for a 16:9 aspect ratio
+    const cardContentWidth = width * 0.9;
+    const thumbnailHeight = cardContentWidth * (9 / 16);
 
     const styles = StyleSheet.create({
         container: { flex: 1, backgroundColor: '#f2f2f2' },
@@ -165,7 +272,12 @@ export default function LessonScreen() {
             flexDirection: 'row',
             alignItems: 'center'
         },
-        title: { fontSize: 28, fontWeight: 'bold', color: '#000c52' },
+        LessonTitle: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: '#000',
+            marginRight: 10
+        },
         plusButton: {
             backgroundColor: '#7ED321',
             marginLeft: 10,
@@ -200,9 +312,9 @@ export default function LessonScreen() {
         },
         thumbnailContainer: {
             width: '100%',
-            height: thumbnailHeight, // <--- Using the dynamically calculated 16:9 height
+            height: thumbnailHeight,
             borderRadius: 10,
-            overflow: 'hidden', // This is crucial for images to respect the border radius
+            overflow: 'hidden',
             marginBottom: 10,
             justifyContent: 'center',
             alignItems: 'center',
@@ -211,7 +323,6 @@ export default function LessonScreen() {
         cardThumbnail: {
             width: '100%',
             height: '100%',
-            // resizeMode is handled directly as a prop on the Image component below
         },
         placeholderThumbnail: {
             width: '100%',
@@ -234,7 +345,12 @@ export default function LessonScreen() {
             borderRadius: 10,
         },
         info: { marginTop: 8 },
-        infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+        infoRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 4,
+            flexWrap: 'wrap',
+        },
         uploaderAvatar: {
             width: 30,
             height: 30,
@@ -244,11 +360,17 @@ export default function LessonScreen() {
             borderColor: '#ddd'
         },
         author: { fontWeight: 'bold', fontSize: 16, marginRight: 8 },
+        lessonDate: {
+            fontSize: 13,
+            color: '#777',
+            marginRight: 8,
+        },
         badge: {
             marginLeft: 'auto',
             borderRadius: 10,
             paddingHorizontal: 8,
-            paddingVertical: 2
+            paddingVertical: 2,
+            alignSelf: 'flex-start',
         },
         badgeText: { color: 'white', fontSize: 12 },
         titleText: { fontSize: 18, marginVertical: 4, fontWeight: 'bold', color: '#333' },
@@ -314,28 +436,24 @@ export default function LessonScreen() {
             textAlign: 'center',
         },
         createQuizButton: {
-      backgroundColor: '#7ED321', // Green color
-    width: 30,
-    height: 30,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },createQuizButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    lineHeight: 22,
-  },LessonTitle: {
-     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginRight: 10
-  }
+            backgroundColor: '#7ED321',
+            width: 30,
+            height: 30,
+            borderRadius: 50,
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 3,
+            elevation: 3,
+        },
+        createQuizButtonText: {
+            color: 'white',
+            fontSize: 20,
+            fontWeight: 'bold',
+            lineHeight: 22,
+        },
     });
 
     return (
@@ -351,13 +469,13 @@ export default function LessonScreen() {
                 {/* HEADER */}
                 <View style={styles.headerContainer}>
                     <View style={styles.titleRow}>
-                      <Text style={styles.LessonTitle}>Lessons</Text>
-                                    <TouchableOpacity
-                                      style={styles.createQuizButton}
-                                      onPress={() => navigation.navigate('Upload')} // Navigate to QuizCreate.js
-                                    >
-                                      <Text style={styles.createQuizButtonText}>+</Text>
-                                    </TouchableOpacity>
+                        <Text style={styles.LessonTitle}>Lessons</Text>
+                        <TouchableOpacity
+                            style={styles.createQuizButton}
+                            onPress={() => navigation.navigate('Upload')}
+                        >
+                            <Text style={styles.createQuizButtonText}>+</Text>
+                        </TouchableOpacity>
                     </View>
                     <Image source={require('../assets/SkillSyncLogo.png')} style={styles.logo} />
                 </View>
@@ -379,97 +497,126 @@ export default function LessonScreen() {
                         <ActivityIndicator size="large" color="#000c52" />
                         <Text style={styles.loadingText}>Loading {loadingUser ? 'user data' : 'lessons'}...</Text>
                     </View>
-                ) : filtered.length === 0 ? (
+                ) : filtered.length === 0 && search === '' && userGrade != null ? (
                     <View style={styles.emptyLessonsContainer}>
-                        <Text style={styles.emptyLessonsText}>No lessons found for your grade or search criteria.</Text>
-                        {userGrade == null && (
-                            <Text style={styles.emptyLessonsSubText}>
-                                Please ensure your profile grade is set correctly or you are logged in.
-                            </Text>
-                        )}
+                        <Text style={styles.emptyLessonsText}>No lessons found for your grade.</Text>
+                        <Text style={styles.emptyLessonsSubText}>
+                            Try uploading a lesson or adjusting your search.
+                        </Text>
+                    </View>
+                ) : filtered.length === 0 && search !== '' ? (
+                    <View style={styles.emptyLessonsContainer}>
+                        <Text style={styles.emptyLessonsText}>No lessons match your search criteria.</Text>
+                        <Text style={styles.emptyLessonsSubText}>
+                            Try a different keyword.
+                        </Text>
+                    </View>
+                ) : filtered.length === 0 && userGrade == null ? (
+                     <View style={styles.emptyLessonsContainer}>
+                        <Text style={styles.emptyLessonsText}>Please log in to view lessons tailored to your grade.</Text>
+                        <Text style={styles.emptyLessonsSubText}>
+                            Your grade determines the lessons displayed here.
+                        </Text>
                     </View>
                 ) : (
                     <ScrollView contentContainerStyle={styles.cardContainer}>
-                        {filtered.map(lesson => (
-                            <View key={lesson._id} style={styles.card}>
-                                {/* Thumbnail Preview Area (using thumbnailPath if available) */}
-                                <TouchableOpacity
-                                    onPress={() => handleLessonPress(lesson)}
-                                    activeOpacity={0.8}
-                                    style={styles.thumbnailContainer}
-                                >
-                                    {/* Prioritize thumbnailPath (from backend generation) */}
-                                    {lesson.thumbnailPath ? (
-                                        <Image
-                                            source={{ uri: getFileUrl(lesson.thumbnailPath) }}
-                                            style={styles.cardThumbnail}
-                                            resizeMode="contain" // This is key: 'cover' makes the image fill the space, potentially cropping
-                                        />
-                                    ) : lesson.imagePath ? ( // Fallback to imagePath if no dedicated thumbnail
-                                        <Image
-                                            source={{ uri: getFileUrl(lesson.imagePath) }}
-                                            style={styles.cardThumbnail}
-                                            resizeMode="contain" // Also 'cover' for the fallback image
-                                        />
-                                    ) : (
-                                        // Generic placeholder if no thumbnail or imagePath
-                                        <View style={styles.placeholderThumbnail}>
-                                            <AntDesign name="videocamera" size={48} color="#999" />
-                                            <Text style={styles.placeholderText}>No preview available</Text>
-                                        </View>
-                                    )}
+                        {filtered.map(lesson => {
+                            const engagement = lessonEngagement[lesson._id] || { isLiked: false, isDisliked: false, likesCount: 0, dislikesCount: 0, commentsCount: 0, viewsCount: 0 };
 
-                                    {/* Play icon overlay on thumbnail if there's a video */}
-                                    {lesson.video && (
-                                        <View style={styles.playOverlay}>
-                                            <AntDesign name="playcircleo" size={60} color="white" />
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-
-                                <View style={styles.info}>
-                                    <View style={styles.infoRow}>
-                                        {/* Display uploader's avatar */}
-                                        {lesson.user?.avatar && (
+                            return (
+                                <View key={lesson._id} style={styles.card}>
+                                    {/* Thumbnail Preview Area */}
+                                    <TouchableOpacity
+                                        onPress={() => handleLessonPress(lesson)}
+                                        activeOpacity={0.8}
+                                        style={styles.thumbnailContainer}
+                                    >
+                                        {lesson.thumbnailPath ? (
                                             <Image
-                                                source={{ uri: getFileUrl(lesson.user.avatar) }}
-                                                style={styles.uploaderAvatar}
+                                                source={{ uri: getFileUrl(lesson.thumbnailPath) }}
+                                                style={styles.cardThumbnail}
+                                                resizeMode="cover"
                                             />
+                                        ) : lesson.imagePath ? (
+                                            <Image
+                                                source={{ uri: getFileUrl(lesson.imagePath) }}
+                                                style={styles.cardThumbnail}
+                                                resizeMode="cover"
+                                            />
+                                        ) : (
+                                            <View style={styles.placeholderThumbnail}>
+                                                <AntDesign name="videocamera" size={48} color="#999" />
+                                                <Text style={styles.placeholderText}>No preview available</Text>
+                                            </View>
                                         )}
-                                        <Text style={styles.author}>{lesson.user?.username || 'Unknown'}</Text>
-                                        <View style={[styles.badge, { backgroundColor: '#28a745' }]}>
-                                            <Text style={styles.badgeText}>{lesson.subject}</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={styles.titleText}>{lesson.title}</Text>
-                                    <Text style={styles.descText}>{lesson.description}</Text>
 
-                                    {/* Views, Likes, Dislikes, Comments Row */}
-                                    <View style={styles.statsRow}>
-                                        <View style={styles.statItem}>
-                                            <Feather name="eye" size={16} color="#666" />
-                                            {/* Using lesson.viewsCount from API, defaulting to 0 */}
-                                            <Text style={styles.statText}>{lesson.viewsCount || 0}</Text>
+                                        {lesson.video && (
+                                            <View style={styles.playOverlay}>
+                                                <AntDesign name="playcircleo" size={60} color="white" />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <View style={styles.info}>
+                                        <View style={styles.infoRow}>
+                                            {/* Display uploader's avatar */}
+                                            {lesson.user?.avatar && (
+                                                <Image
+                                                    source={{ uri: getFileUrl(lesson.user.avatar) }}
+                                                    style={styles.uploaderAvatar}
+                                                />
+                                            )}
+                                            <Text style={styles.author}>{lesson.user?.username || 'Unknown'}</Text>
+                                            {/* Display Lesson Date */}
+                                            {lesson.createdAt && (
+                                                <Text style={styles.lessonDate}>
+                                                    {formatLessonDate(lesson.createdAt)}
+                                                </Text>
+                                            )}
+                                            <View style={[styles.badge, { backgroundColor: '#28a745' }]}>
+                                                <Text style={styles.badgeText}>{lesson.subject}</Text>
+                                            </View>
                                         </View>
-                                        <View style={styles.statItem}>
-                                            <AntDesign name="like2" size={16} color="#666" />
-                                            {/* Using lesson.likesCount from API, defaulting to 0 */}
-                                            <Text style={styles.statText}>{lesson.likesCount || 0}</Text>
-                                        </View>
-                                        <View style={styles.statItem}>
-                                            <AntDesign name="dislike2" size={16} color="#666" />
-                                            {/* Using lesson.dislikesCount from API, defaulting to 0 */}
-                                            <Text style={styles.statText}>{lesson.dislikesCount || 0}</Text>
-                                        </View>
-                                        <View style={styles.statItem}>
-                                            <Feather name="message-square" size={16} color="#666" />
-                                            {/* Using lesson.CommentCount from API, defaulting to 0 */}
-                                            <Text style={styles.statText}>{lesson.CommentCount || 0}</Text>
+                                        <Text style={styles.titleText}>{lesson.title}</Text>
+                                        <Text style={styles.descText}>{lesson.description}</Text>
+
+                                        {/* Views, Likes, Dislikes, Comments Row */}
+                                        <View style={styles.statsRow}>
+                                            <View style={styles.statItem}>
+                                                <Feather name="eye" size={16} color="#666" />
+                                                <Text style={styles.statText}>{engagement.viewsCount}</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={styles.statItem}
+                                                onPress={() => handleLikeDislike(lesson._id, 'like')}
+                                            >
+                                                <AntDesign
+                                                    name="like2"
+                                                    size={16}
+                                                    color={engagement.isLiked ? '#007bff' : '#666'}
+                                                />
+                                                <Text style={styles.statText}>{engagement.likesCount}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.statItem}
+                                                onPress={() => handleLikeDislike(lesson._id, 'dislike')}
+                                            >
+                                                <AntDesign
+                                                    name="dislike2"
+                                                    size={16}
+                                                    color={engagement.isDisliked ? '#dc3545' : '#666'}
+                                                />
+                                                <Text style={styles.statText}>{engagement.dislikesCount}</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.statItem}>
+                                                <Feather name="message-square" size={16} color="#666" />
+                                                <Text style={styles.statText}>{engagement.commentsCount}</Text>
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
-                            </View>
-                        ))}
+                            );
+                        })}
                     </ScrollView>
                 )}
             </KeyboardAvoidingView>

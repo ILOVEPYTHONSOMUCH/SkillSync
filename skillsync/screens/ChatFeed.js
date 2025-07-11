@@ -41,7 +41,7 @@ export default function ChatFeed() {
   const [receivedRequests, setReceivedRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
-  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null); // Now stores full user object
 
   // --- Loading & Error States ---
   const [loadingChats, setLoadingChats] = useState(true);
@@ -111,10 +111,10 @@ export default function ChatFeed() {
       const headers = { Authorization: `Bearer ${token}` };
       const responseReceived = await fetch(`${API_BASE_URL}/chat/friends/requests/received`, { headers: headers, });
       const dataReceived = await responseReceived.json();
-      const responseSent = await fetch(`${API_BASE_URL}/chat/friends/requests/sent`, { headers: headers, });
+      const responseSent = await await fetch(`${API_BASE_URL}/chat/friends/requests/sent`, { headers: headers, });
       const dataSent = await responseSent.json();
       if (responseReceived.ok) { setReceivedRequests(dataReceived); } else { console.error("Received requests error:", dataReceived.msg || dataReceived); setErrorRequests(dataReceived.msg || 'Failed to fetch received requests.'); }
-      if (responseSent.ok) { setSentRequests(dataSent); } else { console.error("Sent requests error:", dataSent.msg || dataSent); setErrorRequests(prev => prev ? prev + ' Failed to fetch sent requests.' : 'Failed to fetch sent requests.'); }
+      if (responseSent.ok) { console.log('Sent requests:', dataSent); setSentRequests(dataSent); } else { console.error("Sent requests error:", dataSent.msg || dataSent); setErrorRequests(prev => prev ? prev + ' Failed to fetch sent requests.' : 'Failed to fetch sent requests.'); }
     } catch (err) { console.error("Error fetching requests:", err); setErrorRequests('Network error or server unreachable.'); } finally { setLoadingRequests(false); }
   }, []);
 
@@ -158,19 +158,33 @@ export default function ChatFeed() {
     setErrorProfile(null);
     try {
       const token = await getToken();
-      if (!token) { setLoadingProfile(false); return; }
-
-      const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` }, });
-      const data = await response.json();
-      if (response.ok) {
-        if (data.user) {
-          setCurrentUserProfile(data.user);
-        } else { console.warn("API response for current user profile did not contain a 'user' object:", data); setErrorProfile('User data not found in profile response.'); }
-      } else {
-        setErrorProfile(data.msg || 'Failed to fetch user profile.'); console.error("Backend Error Fetching Current User Profile:", data);
-        if (response.status === 401 || response.status === 403) { Alert.alert('Session Expired', 'Your session has expired. Please log in again.'); navigation.navigate('Login'); }
+      if (!token) {
+        setLoadingProfile(false);
+        return;
       }
-    } catch (err) { console.error("Error fetching current user profile:", err); setErrorProfile('Network error or server unreachable for profile.'); } finally { setLoadingProfile(false); }
+
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json(); // 'data' is the full user object
+
+      if (response.ok) {
+        // Store the entire user object in state
+        setCurrentUserProfile(data);
+      } else {
+        setErrorProfile(data.msg || 'Failed to fetch user profile.');
+        console.error("Backend Error Fetching Current User Profile:", data);
+        if (response.status === 401 || response.status === 403) {
+          Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+          navigation.navigate('Login');
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching current user profile:", err);
+      setErrorProfile('Network error or server unreachable for profile.');
+    } finally {
+      setLoadingProfile(false);
+    }
   }, []);
 
   // --- Effect Hooks for Data Fetching ---
@@ -261,6 +275,8 @@ export default function ChatFeed() {
   // --- Helper to render user avatars using the file route ---
   const renderAvatar = (avatarRelativePath) => {
     if (avatarRelativePath) {
+      // avatarRelativePath is expected to be like 'uploads/userId/images/filename.jpg'
+      // encodeURIComponent handles special characters, and backend fileRoute correctly resolves paths.
       return { uri: `${API_BASE_URL}/file?path=${encodeURIComponent(avatarRelativePath)}` };
     }
     return UserAvatarPlaceholder;
@@ -375,7 +391,7 @@ export default function ChatFeed() {
                 <TouchableOpacity
                   key={user._id}
                   style={styles.userItem}
-                  onPress={() => navigation.navigate('UserInfoScreen', { userId: user._id })}
+                  onPress={() => navigation.navigate('UserInfoScreen', { userId: user._id})}
                   disabled={isCurrentUser} // Disable navigation if it's the current user
                 >
                   <Image source={renderAvatar(user.avatar)} style={styles.userAvatar} />
