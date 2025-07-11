@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physics Post</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      background-color: #000b4f;
+    }
+    .container {
+      width: 100%;
+      margin: 0;
+      background-color: white;
+      border-radius: 16px 16px 0 0;
+      overflow: hidden;
+    }
+    .header {
+      background-color: #000b4f;
+      height: 32px;
+    }
+    .post {
+      padding: 16px;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-info img {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .username {
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .timestamp {
+      font-size: 14px;
+      color: gray;
+    }
+    .message {
+      margin-top: 12px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .message span:hover {
+      background-color: #e6fff2;
+      transition: all 0.2s ease-in-out;
+      transform: scale(1.05);
+    }
+    .video-preview {
+      margin-top: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .video-preview img {
+      width: 100%;
+      display: block;
+    }
+    .footer-buttons {
+      display: flex;
+      justify-content: space-evenly;
+      padding: 12px 0;
+      border-top: 1px solid #ccc;
+      background-color: #fff;
+    }
+    .footer-buttons .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+    .footer-buttons .btn:hover {
+      background-color: #f0f0f0;
+      transform: scale(1.05);
+    }
+    .footer-buttons img {
+      width: 20px;
+      height: 20px;
+    }
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #000d63;
+    }
+
+    .nav-item img {
+      height: 24px;
+      margin-bottom: 5px;
+    }
+
+
+    .nav-bar div {
+      text-align: center;
+      font-size: 12px;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .nav-bar div:hover {
+      color: #000c52;
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"></div>
+    <div class="post">
+      <div class="user-info">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Cat_poster_1.jpg" alt="Profile" />
+        <div>
+          <div class="username">Cheerawit Keerati</div>
+          <div class="timestamp">5 นาที. 🌐</div>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
+          <b>⋯</b> ✕
+        </div>
+      </div>
+      <div class="message">
+        วันนี้ผมมีคลิปวิชาวิทยาศาสตร์กายภาพ(ฟิสิกส์) เรื่อง คลื่น<br>
+        ระดับชั้นมัธยมศึกษาปีที่ 5 พร้อมกับแบบทดสอบ ใครที่ผ่านมาเห็นโพสนี้<br>
+        แล้วคิดว่ายังไม่เข้าใจเนื้อหาเรื่องคลื่น ลองมาเรียนรู้<br>
+        และลองทำข้อสอบดูกันนะครับ<br><br>
+        ลิงก์แบบทดสอบ<br>
+        <a href="https://www.trueplookpanya.com/examination2/start-exam/13801" target="_blank">
+          https://www.trueplookpanya.com/examination2/start-exam/13801
+        </a>
+      </div>
+      <div class="video-preview">
+        <img src="quiz-vdo.png" alt="Video Preview" />
+      </div>
+    </div>
+    <div class="footer-buttons">
+      <div class="btn">
+        <img src="https://img.icons8.com/ios-glyphs/30/thumb-up.png" alt="like">
+        <span>like</span>
+      </div>
+      <div class="btn">
+        <img src="https://img.icons8.com/ios-glyphs/30/topic.png" alt="comment">
+        <span>comment</span>
+      </div>
+      <div class="btn">
+        <img src="https://img.icons8.com/ios-glyphs/30/copy.png" alt="copy">
+        <span>copy</span>
+      </div>
+      <div class="btn">
+        <img src="https://img.icons8.com/ios-glyphs/30/share.png" alt="share">
+        <span>share</span>
+      </div>
+    </div>
+  </div>
+  <div class="nav-bar">
+    <div class="nav-item">
+        <img src="home.png" alt="Home" />
+        <div>HOME</div>
+     </div>
+     <div class="nav-item">      
+       <img src="quiz.png" alt="Quiz" />
+       <div>QUIZ</div>
+     </div>
+     <div class="nav-item">
+       <img src="lesson.png" alt="Lesson" />
+       <div>LESSON</div>
+     </div>
+     <div class="nav-item">
+         <img src="post.png" alt="Post" />
+         <div>POST</div>
+       </div>
+     <div class="nav-item">
+       <img src="chatfeed.png" alt="Chat" />
+       <div>CHAT FEED</div>
+     </div>
+     <div class="nav-item">
+       <img src="Sign-in.png" alt="profile-img" />
+       <div>PROFILE</div>
+     </div>
+</body>
+</html>
