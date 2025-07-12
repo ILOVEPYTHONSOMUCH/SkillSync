@@ -7,13 +7,19 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { Navbar } from '../components/NavbarAndTheme.js';
 const API_BASE = 'http://192.168.41.31:6000'; // Ensure this matches your backend API URL
 
 const subjects = [
-  'Physics', 'Chemistry', 'Biology',
-  'Math', 'English', 'History',
-  'Geography', 'Computer', 'Art'
+  'Math',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Social',
+  'History',
+  'Music',
+  'Art',
+  'English'
 ];
 
 const Tag = ({ label, selected, onPress }) => (
@@ -349,34 +355,8 @@ const CreatePost = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Footer Navigation (Original styles preserved) */}
-      <View style={styles.footerNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-          <Image source={require('../assets/home.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>HOME</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
-          <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>QUIZ</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
-          <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>LESSON</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
-          <Image source={require('../assets/post.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>POST</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
-          <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>CHAT</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-          <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>PROFILE</Text>
-        </TouchableOpacity>
-      </View>
+      <Navbar></Navbar>
+     
     </View>
   );
 };

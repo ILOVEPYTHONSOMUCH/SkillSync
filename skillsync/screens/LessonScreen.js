@@ -11,13 +11,46 @@ import {
     Dimensions,
     KeyboardAvoidingView,
     Platform,
-    ActivityIndicator
+    ActivityIndicator,
+    Modal,
+    FlatList
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { AntDesign, Feather } from '@expo/vector-icons';
 
-const API_BASE = 'http://192.168.41.31:6000'; // RESTORED: Your original backend IP
+const API_BASE = 'http://192.168.41.31:6000';
+const { width, height } = Dimensions.get('window');
+const formatTimeSince = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+        if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+        if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)}mo ago`;
+        return `${Math.floor(diffInSeconds / 31536000)}y ago`;
+    } catch (e) {
+        console.error("Error formatting time since:", dateString, e);
+        return '';
+    }
+};
+// Predefined subjects
+const subjects = [
+  'Math',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Social',
+  'History',
+  'Music',
+  'Art',
+  'English'
+];
 
 export default function LessonScreen() {
     const [lessons, setLessons] = useState([]);
@@ -26,8 +59,11 @@ export default function LessonScreen() {
     const [loadingUser, setLoadingUser] = useState(true);
     const [loadingLessons, setLoadingLessons] = useState(false);
     const [lessonEngagement, setLessonEngagement] = useState({});
+    const [filterModalVisible, setFilterModalVisible] = useState(false);
+    const [selectedSubjects, setSelectedSubjects] = useState([]);
 
     const navigation = useNavigation();
+    const route = useRoute();
 
     const fetchLessonsAndUser = useCallback(async () => {
         setLoadingUser(true);
@@ -35,7 +71,6 @@ export default function LessonScreen() {
         let fetchedGrade = null;
         let token = null;
 
-        // 1. Fetch User Profile to get grade and token
         try {
             token = await AsyncStorage.getItem('userToken');
             if (!token) {
@@ -45,9 +80,11 @@ export default function LessonScreen() {
                 setLessons([]);
                 return;
             }
+
             const res = await fetch(`${API_BASE}/api/auth/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            
             if (res.ok) {
                 const me = await res.json();
                 fetchedGrade = me.grade;
@@ -73,26 +110,23 @@ export default function LessonScreen() {
             setLoadingUser(false);
         }
 
-        // 2. Fetch Lessons using the fetched grade
         if (fetchedGrade != null) {
             try {
-                // RESTORED: Original lesson fetching path, no search query here
                 const res = await fetch(
                     `${API_BASE}/api/search/lessons?grade=${fetchedGrade}`,
-                    {
-                        headers: { Authorization: `Bearer ${token}` }
-                    }
+                    { headers: { Authorization: `Bearer ${token}` } }
                 );
                 const data = await res.json();
+                
                 if (Array.isArray(data)) {
                     const sortedLessons = [...data].sort((a, b) => {
                         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                         return dateB - dateA;
                     });
+                    
                     setLessons(sortedLessons);
 
-                    // Initialize lessonEngagement based on fetched lessons
                     const initialEngagement = {};
                     sortedLessons.forEach(lesson => {
                         initialEngagement[lesson._id] = {
@@ -100,12 +134,11 @@ export default function LessonScreen() {
                             isDisliked: lesson.isDisliked || false,
                             likesCount: lesson.likesCount || 0,
                             dislikesCount: lesson.dislikesCount || 0,
-                            commentsCount: lesson.commentsCount || 0,
-                            viewsCount: lesson.viewsCount || 0
+                            viewsCount: lesson.viewsCount || 0,
+                            commentsCount: lesson.commentsCount || 0
                         };
                     });
                     setLessonEngagement(initialEngagement);
-
                 } else {
                     console.warn('Expected lessons array, got:', data);
                     setLessons([]);
@@ -124,15 +157,33 @@ export default function LessonScreen() {
             setLessons([]);
             setLessonEngagement({});
         }
-    }, []); // fetchLessonsAndUser no longer depends on 'search' directly, as search is now local
+    }, []);
 
     useFocusEffect(
         useCallback(() => {
             fetchLessonsAndUser();
-        }, [fetchLessonsAndUser])
-    );
 
-    // REMOVED: The useEffect for debouncing search, as search is now handled locally by 'filtered'
+            if (route.params?.updatedLesson) {
+                setLessons(prevLessons => 
+                    prevLessons.map(lesson => 
+                        lesson._id === route.params.updatedLesson._id 
+                            ? route.params.updatedLesson 
+                            : lesson
+                    )
+                );
+                
+                setLessonEngagement(prev => ({
+                    ...prev,
+                    [route.params.updatedLesson._id]: {
+                        ...prev[route.params.updatedLesson._id],
+                        ...route.params.updatedEngagement
+                    }
+                }));
+                
+                navigation.setParams({ updatedLesson: undefined, updatedEngagement: undefined });
+            }
+        }, [fetchLessonsAndUser, route.params, navigation])
+    );
 
     const handleLikeDislike = async (lessonId, actionType) => {
         const token = await AsyncStorage.getItem('userToken');
@@ -141,43 +192,8 @@ export default function LessonScreen() {
             return;
         }
 
-        const currentEngagement = lessonEngagement[lessonId] || { isLiked: false, isDisliked: false, likesCount: 0, dislikesCount: 0 };
-        let { isLiked, isDisliked, likesCount, dislikesCount } = currentEngagement;
-
-        let optimisticUpdate = {};
-        if (actionType === 'like') {
-            if (isLiked) {
-                isLiked = false;
-                likesCount = Math.max(0, likesCount - 1);
-            } else {
-                isLiked = true;
-                likesCount += 1;
-                if (isDisliked) {
-                    isDisliked = false;
-                    dislikesCount = Math.max(0, dislikesCount - 1);
-                }
-            }
-        } else if (actionType === 'dislike') {
-            if (isDisliked) {
-                isDisliked = false;
-                dislikesCount = Math.max(0, dislikesCount - 1);
-            } else {
-                isDisliked = true;
-                dislikesCount += 1;
-                if (isLiked) {
-                    isLiked = false;
-                    likesCount = Math.max(0, likesCount - 1);
-                }
-            }
-        }
-
-        setLessonEngagement(prevEngagement => ({
-            ...prevEngagement,
-            [lessonId]: { ...prevEngagement[lessonId], isLiked, isDisliked, likesCount, dislikesCount }
-        }));
-
-        const endpoint = `${API_BASE}/api/lesson/${lessonId}/${actionType}`;
         try {
+            const endpoint = `${API_BASE}/api/lesson/${lessonId}/${actionType}`;
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -188,39 +204,77 @@ export default function LessonScreen() {
 
             if (!res.ok) {
                 const errorData = await res.json();
-                Alert.alert('Error', errorData.message || `Failed to ${actionType} lesson.`);
-                setLessonEngagement(prevEngagement => ({
-                    ...prevEngagement,
-                    [lessonId]: currentEngagement
-                }));
-            } else {
-                const responseData = await res.json();
-                setLessonEngagement(prevEngagement => ({
-                    ...prevEngagement,
-                    [lessonId]: {
-                        ...prevEngagement[lessonId],
-                        likesCount: responseData.likesCount,
-                        dislikesCount: responseData.dislikesCount,
-                        isLiked: responseData.isLiked,
-                        isDisliked: responseData.isDisliked,
-                    }
-                }));
+                throw new Error(errorData.message || `Failed to ${actionType} lesson.`);
             }
+
+            const data = await res.json();
+            
+            setLessons(prevLessons => 
+                prevLessons.map(lesson => 
+                    lesson._id === lessonId ? {
+                        ...lesson,
+                        isLiked: data.isLiked,
+                        isDisliked: data.isDisliked,
+                        likesCount: data.likesCount,
+                        dislikesCount: data.dislikesCount
+                    } : lesson
+                )
+            );
+
+            setLessonEngagement(prev => ({
+                ...prev,
+                [lessonId]: {
+                    ...prev[lessonId],
+                    isLiked: data.isLiked,
+                    isDisliked: data.isDisliked,
+                    likesCount: data.likesCount,
+                    dislikesCount: data.dislikesCount
+                }
+            }));
+
         } catch (e) {
             console.error(`Error during ${actionType} action:`, e);
-            Alert.alert('Network Error', `Could not ${actionType} lesson. Please check your connection.`);
-            setLessonEngagement(prevEngagement => ({
-                ...prevEngagement,
-                [lessonId]: currentEngagement
-            }));
+            Alert.alert('Error', e.message || `Could not ${actionType} lesson. Please try again.`);
         }
     };
 
-    // RESTORED: The 'filtered' variable definition for local search
-    const filtered = lessons.filter(item => {
-        const text = `${item.title || ''} ${item.subject || ''} ${item.user?.username || ''}`.toLowerCase();
-        return text.includes(search.toLowerCase());
+    const filtered = lessons.filter(lesson => {
+        // Search filter
+        const matchesSearch = `${lesson.title || ''} ${lesson.subject || ''} ${lesson.user?.username || ''}`
+            .toLowerCase()
+            .includes(search.toLowerCase());
+        
+        // Subject filter
+        const matchesSubjects = selectedSubjects.length === 0 || 
+            (lesson.subject && selectedSubjects.includes(lesson.subject));
+        
+        return matchesSearch && matchesSubjects;
     });
+
+    const toggleSubject = (subject) => {
+        setSelectedSubjects(prev => 
+            prev.includes(subject) 
+                ? prev.filter(s => s !== subject) 
+                : [...prev, subject]
+        );
+    };
+
+    const renderSubjectItem = ({ item }) => (
+        <TouchableOpacity 
+            style={[
+                styles.subjectFilterButton,
+                selectedSubjects.includes(item) && styles.selectedSubject,
+            ]}
+            onPress={() => toggleSubject(item)}
+        >
+            <Text style={[
+                styles.subjectFilterText,
+                selectedSubjects.includes(item) && styles.selectedSubjectText
+            ]}>
+                {item}
+            </Text>
+        </TouchableOpacity>
+    );
 
     const getFileUrl = (path) =>
         path
@@ -229,8 +283,15 @@ export default function LessonScreen() {
 
     const handleLessonPress = (lesson) => {
         if (lesson && lesson._id) {
-            console.log("Navigating to WatchInfo with contentId:", lesson._id);
-            navigation.navigate('WatchInfo', { contentId: lesson._id, contentType: 'lesson' });
+            navigation.navigate('WatchInfo', { 
+                contentId: lesson._id, 
+                contentType: 'lesson',
+                initialLesson: lesson,
+                initialEngagement: {
+                    ...lessonEngagement[lesson._id],
+                    commentsCount: lesson.commentsCount || 0
+                }
+            });
         } else {
             console.warn("Attempted to navigate without a valid lesson ID:", lesson);
             Alert.alert(
@@ -238,6 +299,10 @@ export default function LessonScreen() {
                 "Cannot open lesson: The lesson ID is missing. Please try again later or contact support if the issue persists."
             );
         }
+    };
+
+    const handleQuizPress = (quizId) => {
+        navigation.navigate('QuizInfo', { quizId });
     };
 
     const formatLessonDate = (dateString) => {
@@ -251,7 +316,25 @@ export default function LessonScreen() {
         }
     };
 
-    const { width } = Dimensions.get('window');
+    const formatTimeSince = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+            if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+            if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)}mo ago`;
+            return `${Math.floor(diffInSeconds / 31536000)}y ago`;
+        } catch (e) {
+            console.error("Error formatting time since:", dateString, e);
+            return '';
+        }
+    };
+
     const cardContentWidth = width * 0.9;
     const thumbnailHeight = cardContentWidth * (9 / 16);
 
@@ -285,8 +368,14 @@ export default function LessonScreen() {
             borderRadius: 20
         },
         logo: { width: 40, height: 40 },
-        searchContainer: { padding: 10, backgroundColor: 'white' },
+        searchContainer: { 
+            padding: 10, 
+            backgroundColor: 'white',
+            flexDirection: 'row',
+            alignItems: 'center'
+        },
         searchBox: {
+            flex: 1,
             backgroundColor: '#fff',
             borderColor: 'lightgray',
             borderWidth: 2,
@@ -294,6 +383,12 @@ export default function LessonScreen() {
             paddingHorizontal: 15,
             paddingVertical: 8,
             fontSize: 16
+        },
+        filterButton: {
+            marginLeft: 10,
+            padding: 8,
+            borderRadius: 20,
+            backgroundColor: '#f1f1f1'
         },
         cardContainer: {
             padding: 10,
@@ -375,7 +470,6 @@ export default function LessonScreen() {
         badgeText: { color: 'white', fontSize: 12 },
         titleText: { fontSize: 18, marginVertical: 4, fontWeight: 'bold', color: '#333' },
         descText: { fontSize: 14, color: '#555' },
-
         statsRow: {
             flexDirection: 'row',
             justifyContent: 'space-around',
@@ -395,7 +489,6 @@ export default function LessonScreen() {
             fontSize: 13,
             color: '#666',
         },
-
         navBar: {
             flexDirection: 'row',
             justifyContent: 'space-around',
@@ -454,6 +547,105 @@ export default function LessonScreen() {
             fontWeight: 'bold',
             lineHeight: 22,
         },
+        modalContainer: {
+            flex: 1,
+            justifyContent: 'flex-end',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+        },
+        modalContent: {
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 20,
+            maxHeight: height * 0.7,
+        },
+        modalHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 20,
+        },
+        modalTitle: {
+            fontSize: 18,
+            fontWeight: 'bold',
+        },
+        subjectList: {
+            paddingBottom: 20,
+        },
+        subjectFilterButton: {
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: '#f1f1f1',
+            marginBottom: 10,
+            alignItems: 'center',
+        },
+        selectedSubject: {
+            backgroundColor: '#000c52',
+        },
+        subjectFilterText: {
+            fontSize: 16,
+        },
+        selectedSubjectText: {
+            color: 'white',
+        },
+        modalFooter: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginTop: 20,
+        },
+        clearButton: {
+            flex: 1,
+            padding: 15,
+            backgroundColor: '#f1f1f1',
+            borderRadius: 10,
+            alignItems: 'center',
+            marginRight: 10,
+        },
+        applyButton: {
+            flex: 1,
+            padding: 15,
+            backgroundColor: '#000c52',
+            borderRadius: 10,
+            alignItems: 'center',
+        },
+        clearButtonText: {
+            color: '#000',
+            fontWeight: 'bold',
+        },
+        applyButtonText: {
+            color: '#fff',
+            fontWeight: 'bold',
+        },
+        relatedQuizzesContainer: {
+            marginTop: 10,
+            borderTopWidth: 1,
+            borderTopColor: '#eee',
+            paddingTop: 10,
+        },
+        relatedQuizzesTitle: {
+            fontSize: 16,
+            fontWeight: 'bold',
+            marginBottom: 8,
+            color: '#333',
+        },
+        quizItem: {
+            backgroundColor: '#f8f9fa',
+            padding: 10,
+            borderRadius: 8,
+            marginBottom: 8,
+            borderWidth: 1,
+            borderColor: '#ddd',
+        },
+        quizTitle: {
+            fontSize: 14,
+            fontWeight: '500',
+            color: '#333',
+        },
+        quizSubject: {
+            fontSize: 12,
+            color: '#666',
+            marginTop: 4,
+        },
     });
 
     return (
@@ -465,7 +657,7 @@ export default function LessonScreen() {
             >
                 {/* TOP BAR */}
                 <View style={styles.topBar} />
-
+    
                 {/* HEADER */}
                 <View style={styles.headerContainer}>
                     <View style={styles.titleRow}>
@@ -479,8 +671,8 @@ export default function LessonScreen() {
                     </View>
                     <Image source={require('../assets/SkillSyncLogo.png')} style={styles.logo} />
                 </View>
-
-                {/* SEARCH */}
+    
+                {/* SEARCH AND FILTER */}
                 <View style={styles.searchContainer}>
                     <TextInput
                         style={styles.searchBox}
@@ -489,30 +681,78 @@ export default function LessonScreen() {
                         value={search}
                         onChangeText={setSearch}
                     />
+                    <TouchableOpacity 
+                        style={styles.filterButton}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <Feather name="filter" size={20} color="#000c52" />
+                    </TouchableOpacity>
                 </View>
-
+    
+                {/* FILTER MODAL */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={filterModalVisible}
+                    onRequestClose={() => setFilterModalVisible(false)}
+                >
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Filter by Subject</Text>
+                                <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                                    <Feather name="x" size={24} color="#000" />
+                                </TouchableOpacity>
+                            </View>
+                            
+                            <FlatList
+                                data={subjects}
+                                renderItem={renderSubjectItem}
+                                keyExtractor={(item) => item}
+                                contentContainerStyle={styles.subjectList}
+                            />
+                            
+                            <View style={styles.modalFooter}>
+                                <TouchableOpacity 
+                                    style={styles.clearButton}
+                                    onPress={() => setSelectedSubjects([])}
+                                >
+                                    <Text style={styles.clearButtonText}>Clear All</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.applyButton}
+                                    onPress={() => setFilterModalVisible(false)}
+                                >
+                                    <Text style={styles.applyButtonText}>Apply Filters</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+    
                 {/* LESSON CARDS */}
                 {loadingUser || loadingLessons ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color="#000c52" />
                         <Text style={styles.loadingText}>Loading {loadingUser ? 'user data' : 'lessons'}...</Text>
                     </View>
-                ) : filtered.length === 0 && search === '' && userGrade != null ? (
+                ) : filtered.length === 0 && search === '' && selectedSubjects.length === 0 && userGrade != null ? (
                     <View style={styles.emptyLessonsContainer}>
                         <Text style={styles.emptyLessonsText}>No lessons found for your grade.</Text>
                         <Text style={styles.emptyLessonsSubText}>
                             Try uploading a lesson or adjusting your search.
                         </Text>
                     </View>
-                ) : filtered.length === 0 && search !== '' ? (
+                ) : filtered.length === 0 && (search !== '' || selectedSubjects.length > 0) ? (
                     <View style={styles.emptyLessonsContainer}>
-                        <Text style={styles.emptyLessonsText}>No lessons match your search criteria.</Text>
+                        <Text style={styles.emptyLessonsText}>No lessons match your criteria.</Text>
                         <Text style={styles.emptyLessonsSubText}>
-                            Try a different keyword.
+                            Try a different search or filter.
                         </Text>
                     </View>
                 ) : filtered.length === 0 && userGrade == null ? (
-                     <View style={styles.emptyLessonsContainer}>
+                    <View style={styles.emptyLessonsContainer}>
                         <Text style={styles.emptyLessonsText}>Please log in to view lessons tailored to your grade.</Text>
                         <Text style={styles.emptyLessonsSubText}>
                             Your grade determines the lessons displayed here.
@@ -521,8 +761,18 @@ export default function LessonScreen() {
                 ) : (
                     <ScrollView contentContainerStyle={styles.cardContainer}>
                         {filtered.map(lesson => {
-                            const engagement = lessonEngagement[lesson._id] || { isLiked: false, isDisliked: false, likesCount: 0, dislikesCount: 0, commentsCount: 0, viewsCount: 0 };
-
+                            const engagement = lessonEngagement[lesson._id] || { 
+                                isLiked: false, 
+                                isDisliked: false, 
+                                likesCount: 0, 
+                                dislikesCount: 0,
+                                viewsCount: 0,
+                                commentsCount: lesson.commentsCount || 0
+                            };
+    
+                            // Get related quizzes directly from the lesson object
+                            const quizzesForLesson = lesson.relatedQuizzes || [];
+    
                             return (
                                 <View key={lesson._id} style={styles.card}>
                                     {/* Thumbnail Preview Area */}
@@ -549,14 +799,14 @@ export default function LessonScreen() {
                                                 <Text style={styles.placeholderText}>No preview available</Text>
                                             </View>
                                         )}
-
+    
                                         {lesson.video && (
                                             <View style={styles.playOverlay}>
                                                 <AntDesign name="playcircleo" size={60} color="white" />
                                             </View>
                                         )}
                                     </TouchableOpacity>
-
+    
                                     <View style={styles.info}>
                                         <View style={styles.infoRow}>
                                             {/* Display uploader's avatar */}
@@ -567,19 +817,15 @@ export default function LessonScreen() {
                                                 />
                                             )}
                                             <Text style={styles.author}>{lesson.user?.username || 'Unknown'}</Text>
-                                            {/* Display Lesson Date */}
-                                            {lesson.createdAt && (
-                                                <Text style={styles.lessonDate}>
-                                                    {formatLessonDate(lesson.createdAt)}
-                                                </Text>
-                                            )}
+                                           <Text style={styles.timeText}>• {formatTimeSince(lesson.createdAt)}</Text>
+                                            <Text style={styles.timeText}>• {formatTimeSince(lesson.createdAt)}</Text>
                                             <View style={[styles.badge, { backgroundColor: '#28a745' }]}>
                                                 <Text style={styles.badgeText}>{lesson.subject}</Text>
                                             </View>
                                         </View>
                                         <Text style={styles.titleText}>{lesson.title}</Text>
                                         <Text style={styles.descText}>{lesson.description}</Text>
-
+    
                                         {/* Views, Likes, Dislikes, Comments Row */}
                                         <View style={styles.statsRow}>
                                             <View style={styles.statItem}>
@@ -613,6 +859,25 @@ export default function LessonScreen() {
                                                 <Text style={styles.statText}>{engagement.commentsCount}</Text>
                                             </View>
                                         </View>
+    
+                                        {/* Related Quizzes Section */}
+                                        {quizzesForLesson.length > 0 && (
+                                            <View style={styles.relatedQuizzesContainer}>
+                                                <Text style={styles.relatedQuizzesTitle}>Related Quizzes ({quizzesForLesson.length})</Text>
+                                                {quizzesForLesson.map(quiz => (
+                                                    <TouchableOpacity 
+                                                        key={quiz._id}
+                                                        style={styles.quizItem}
+                                                        onPress={() => handleQuizPress(quiz._id)}
+                                                    >
+                                                        <Text style={styles.quizTitle}>{quiz.title}</Text>
+                                                        {quiz.subject && (
+                                                            <Text style={styles.quizSubject}>Subject: {quiz.subject}</Text>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
                             );
@@ -620,7 +885,7 @@ export default function LessonScreen() {
                     </ScrollView>
                 )}
             </KeyboardAvoidingView>
-
+    
             {/* FOOTER NAV */}
             <View style={styles.navBar}>
                 {[

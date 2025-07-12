@@ -19,7 +19,7 @@ import { AntDesign, Feather } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE = 'http://192.168.41.31:6000'; // Ensure this matches your backend IP
+const API_BASE = 'http://192.168.41.31:6000';
 
 export default function WatchInfo() {
     const route = useRoute();
@@ -28,21 +28,47 @@ export default function WatchInfo() {
     const navigation = useNavigation();
 
     const videoRef = useRef(null);
-    const scrollViewRef = useRef(null); // Ref for scrolling to comments
+    const scrollViewRef = useRef(null);
     const [content, setContent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [status, setStatus] = useState({}); // For video playback status
+    const [status, setStatus] = useState({});
 
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [commentLoading, setCommentLoading] = useState(false);
     const [commentError, setCommentError] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+
+    const [likesCount, setLikesCount] = useState(0);
+    const [dislikesCount, setDislikesCount] = useState(0);
+    const [userLikeStatus, setUserLikeStatus] = useState(null);
+    const [isLikingDisliking, setIsLikingDisliking] = useState(false);
 
     const { width } = Dimensions.get('window');
-    // Removed direct usage of videoWidth and videoHeight in favor of CSS aspect ratio for Video component
 
-    // Function to fetch content details (lesson or post)
+    const getFileUrl = useCallback((path) =>
+        path ? `${API_BASE}/api/file?path=${encodeURIComponent(path.replace(/\\/g, '/'))}` : null,
+        []
+    );
+
+    const fetchUserDetails = useCallback(async (userId, token) => {
+        try {
+            const userRes = await fetch(`${API_BASE}/api/users/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!userRes.ok) {
+                const userErrorData = await userRes.json();
+                console.warn(`Could not fetch user details for ID ${userId}:`, userErrorData.message);
+                return null;
+            }
+            return await userRes.json();
+        } catch (userFetchErr) {
+            console.error(`Error fetching user details for ID ${userId}:`, userFetchErr);
+            return null;
+        }
+    }, []);
+
     const fetchContentDetails = useCallback(async () => {
         if (!contentId) {
             setError('Content ID is missing. Cannot fetch details.');
@@ -76,31 +102,26 @@ export default function WatchInfo() {
 
             if (!res.ok) {
                 const errorData = await res.json();
+                if (res.status === 404) {
+                    throw new Error(`The ${contentType} was not found or has been removed.`);
+                }
                 throw new Error(errorData.message || `Failed to fetch ${contentType} details.`);
             }
 
             let data = await res.json();
 
-            // Logic to fetch full user info if 'content.user' is just an ID (remains as discussed)
             if (data.user && typeof data.user === 'string') {
-                try {
-                    const userRes = await fetch(`${API_BASE}/api/users/${data.user}`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-
-                    if (!userRes.ok) {
-                        const userErrorData = await userRes.json();
-                        console.warn(`Could not fetch user details for ID ${data.user}:`, userErrorData.message);
-                    } else {
-                        const userData = await userRes.json();
-                        data = { ...data, user: userData };
-                    }
-                } catch (userFetchErr) {
-                    console.error(`Error fetching user details for ID ${data.user}:`, userFetchErr);
+                const userDetails = await fetchUserDetails(data.user, token);
+                if (userDetails) {
+                    data = { ...data, user: userDetails };
                 }
             }
 
             setContent(data);
+            setLikesCount(data.likesCount || 0);
+            setDislikesCount(data.dislikesCount || 0);
+            setUserLikeStatus(data.userLikeStatus || null);
+
         } catch (err) {
             console.error(`Error fetching ${contentType}:`, err);
             setError(err.message);
@@ -108,9 +129,8 @@ export default function WatchInfo() {
         } finally {
             setLoading(false);
         }
-    }, [contentId, contentType, navigation]);
+    }, [contentId, contentType, navigation, fetchUserDetails]);
 
-    // --- Function to fetch comments ---
     const fetchComments = useCallback(async () => {
         if (!contentId) {
             setCommentError('Cannot fetch comments: Content ID is missing.');
@@ -136,9 +156,8 @@ export default function WatchInfo() {
             }
 
             const data = await res.json();
-            // Sort by createdAt in ascending order to show oldest first
-            const sortedComments = data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            setComments(sortedComments);
+            setComments(data);
+
         } catch (err) {
             console.error("Error fetching comments:", err);
             setCommentError(err.message || 'Could not load comments.');
@@ -147,7 +166,174 @@ export default function WatchInfo() {
         }
     }, [contentId]);
 
-    // --- Function to post a new comment ---
+    const fetchCurrentUser = useCallback(async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
+            
+            const res = await fetch(`${API_BASE}/api/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            if (!res.ok) {
+                const errorData = await res.json();
+                console.warn('Failed to fetch current user:', errorData.message);
+                return;
+            }
+            
+            const userData = await res.json();
+            setCurrentUser(userData);
+        } catch (err) {
+            console.error('Error fetching current user:', err);
+        }
+    }, []);
+
+    const handleLike = useCallback(async () => {
+        if (!contentId || isLikingDisliking) return;
+        setIsLikingDisliking(true);
+
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) {
+                Alert.alert('Authentication Required', 'Please log in to like content.');
+                return;
+            }
+
+            let likeApiUrl;
+            if (contentType === 'lesson') {
+                likeApiUrl = `${API_BASE}/api/lesson/${contentId}/like`;
+            } else if (contentType === 'post') {
+                likeApiUrl = `${API_BASE}/api/posts/${contentId}/like`;
+            } else {
+                throw new Error('Invalid content type for liking.');
+            }
+
+            const previousUserLikeStatus = userLikeStatus;
+            const previousLikesCount = likesCount;
+            const previousDislikesCount = dislikesCount;
+
+            let newLikesCount = likesCount;
+            let newDislikesCount = dislikesCount;
+            let newUserLikeStatus;
+
+            if (userLikeStatus === 'liked') {
+                newLikesCount--;
+                newUserLikeStatus = null;
+            } else {
+                newLikesCount++;
+                if (userLikeStatus === 'disliked') {
+                    newDislikesCount--;
+                }
+                newUserLikeStatus = 'liked';
+            }
+
+            setLikesCount(newLikesCount);
+            setDislikesCount(newDislikesCount);
+            setUserLikeStatus(newUserLikeStatus);
+
+            const res = await fetch(likeApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({})
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                setLikesCount(previousLikesCount);
+                setDislikesCount(previousDislikesCount);
+                setUserLikeStatus(previousUserLikeStatus);
+                throw new Error(errorData.message || 'Failed to like content.');
+            }
+
+            const data = await res.json();
+            setLikesCount(data.likesCount);
+            setDislikesCount(data.dislikesCount);
+            setUserLikeStatus(data.userLikeStatus);
+
+        } catch (err) {
+            console.error("Error liking content:", err);
+            Alert.alert('Error', err.message || 'Failed to like content. Please try again.');
+        } finally {
+            setIsLikingDisliking(false);
+        }
+    }, [contentId, contentType, likesCount, dislikesCount, userLikeStatus, isLikingDisliking]);
+
+    const handleDislike = useCallback(async () => {
+        if (!contentId || isLikingDisliking) return;
+        setIsLikingDisliking(true);
+
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) {
+                Alert.alert('Authentication Required', 'Please log in to dislike content.');
+                return;
+            }
+
+            let dislikeApiUrl;
+            if (contentType === 'lesson') {
+                dislikeApiUrl = `${API_BASE}/api/lesson/${contentId}/dislike`;
+            } else if (contentType === 'post') {
+                dislikeApiUrl = `${API_BASE}/api/posts/${contentId}/dislike`;
+            } else {
+                throw new Error('Invalid content type for disliking.');
+            }
+
+            const previousUserLikeStatus = userLikeStatus;
+            const previousLikesCount = likesCount;
+            const previousDislikesCount = dislikesCount;
+
+            let newLikesCount = likesCount;
+            let newDislikesCount = dislikesCount;
+            let newUserLikeStatus;
+
+            if (userLikeStatus === 'disliked') {
+                newDislikesCount--;
+                newUserLikeStatus = null;
+            } else {
+                newDislikesCount++;
+                if (userLikeStatus === 'liked') {
+                    newLikesCount--;
+                }
+                newUserLikeStatus = 'disliked';
+            }
+
+            setLikesCount(newLikesCount);
+            setDislikesCount(newDislikesCount);
+            setUserLikeStatus(newUserLikeStatus);
+
+            const res = await fetch(dislikeApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({})
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                setLikesCount(previousLikesCount);
+                setDislikesCount(previousDislikesCount);
+                setUserLikeStatus(previousUserLikeStatus);
+                throw new Error(errorData.message || 'Failed to dislike content.');
+            }
+
+            const data = await res.json();
+            setLikesCount(data.likesCount);
+            setDislikesCount(data.dislikesCount);
+            setUserLikeStatus(data.userLikeStatus);
+
+        } catch (err) {
+            console.error("Error disliking content:", err);
+            Alert.alert('Error', err.message || 'Failed to dislike content. Please try again.');
+        } finally {
+            setIsLikingDisliking(false);
+        }
+    }, [contentId, contentType, likesCount, dislikesCount, userLikeStatus, isLikingDisliking]);
+
     const handlePostComment = useCallback(async () => {
         if (!newComment.trim()) {
             Alert.alert('Input Required', 'Please type a comment before posting.');
@@ -175,7 +361,7 @@ export default function WatchInfo() {
                 },
                 body: JSON.stringify({
                     text: newComment.trim(),
-                    contentType: contentType
+                    contentType: contentType === 'lesson' ? 'Lesson' : 'Post'
                 })
             });
 
@@ -184,20 +370,12 @@ export default function WatchInfo() {
                 throw new Error(errorData.message || 'Failed to post comment.');
             }
 
-            const postedComment = await res.json();
-
+            const newCommentData = await res.json();
+            setComments(prev => [...prev, newCommentData]);
             setNewComment('');
-            // Add the new comment with a dummy user for display until we refetch all comments
-            // For a more robust solution, you'd fetch the current user's details and include them
-            // or modify your backend to return the full user object with the new comment.
-            // For now, let's just refetch all comments to ensure user data is correct.
-            fetchComments(); 
 
-            // Scroll to end after a slight delay to ensure content is rendered
             setTimeout(() => {
-                if (scrollViewRef.current) {
-                    scrollViewRef.current.scrollToEnd({ animated: true });
-                }
+                scrollViewRef.current?.scrollToEnd({ animated: true });
             }, 100);
 
         } catch (err) {
@@ -206,9 +384,8 @@ export default function WatchInfo() {
         } finally {
             setCommentLoading(false);
         }
-    }, [contentId, newComment, contentType, fetchComments]); // Added fetchComments to dependency array
+    }, [contentId, newComment, contentType]);
 
-    // --- Function to delete a comment ---
     const handleDeleteComment = useCallback(async (commentId) => {
         Alert.alert(
             'Delete Comment',
@@ -218,20 +395,16 @@ export default function WatchInfo() {
                 {
                     text: 'Delete',
                     onPress: async () => {
-                        setCommentLoading(true);
                         try {
                             const token = await AsyncStorage.getItem('userToken');
                             if (!token) {
                                 Alert.alert('Authentication Required', 'Please log in to delete comments.');
-                                setCommentLoading(false);
                                 return;
                             }
 
                             const res = await fetch(`${API_BASE}/api/comments/${commentId}`, {
                                 method: 'DELETE',
-                                headers: {
-                                    Authorization: `Bearer ${token}`
-                                }
+                                headers: { Authorization: `Bearer ${token}` }
                             });
 
                             if (!res.ok) {
@@ -239,14 +412,10 @@ export default function WatchInfo() {
                                 throw new Error(errorData.message || 'Failed to delete comment.');
                             }
 
-                            Alert.alert('Success', 'Comment deleted successfully.');
-                            setComments(prevComments => prevComments.filter(comment => comment._id !== commentId));
-
+                            setComments(prev => prev.filter(c => c._id !== commentId));
                         } catch (err) {
                             console.error("Error deleting comment:", err);
                             Alert.alert('Error', err.message || 'Failed to delete comment. Please try again.');
-                        } finally {
-                            setCommentLoading(false);
                         }
                     }
                 }
@@ -257,21 +426,15 @@ export default function WatchInfo() {
     useFocusEffect(
         useCallback(() => {
             fetchContentDetails();
-            fetchComments(); // Fetch comments when screen focuses
+            fetchComments();
+            fetchCurrentUser();
             return () => {
-                // Pause and unload video when screen blurs to save resources
                 if (videoRef.current) {
                     videoRef.current.pauseAsync();
-                    videoRef.current.unloadAsync();
                 }
             };
-        }, [fetchContentDetails, fetchComments])
+        }, [fetchContentDetails, fetchComments, fetchCurrentUser])
     );
-
-    const getFileUrl = (path) =>
-        path
-            ? `${API_BASE}/api/file?path=${encodeURIComponent(path.replace(/\\/g, '/'))}`
-            : null;
 
     const formatContentDate = (dateString) => {
         if (!dateString) return '';
@@ -279,17 +442,18 @@ export default function WatchInfo() {
         try {
             return new Date(dateString).toLocaleDateString(undefined, options);
         } catch (e) {
-            console.error("Error formatting date:", dateString, e);
+            console.error("Error formatting content date:", dateString, e);
             return dateString;
         }
     };
 
-    const formatCommentDate = (dateString) => { // New function for comment dates
+    const formatCommentDate = (dateString) => {
         if (!dateString) return '';
         const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
         try {
             return new Date(dateString).toLocaleDateString(undefined, options);
         } catch (e) {
+            console.error("Error formatting comment date:", dateString, e);
             return dateString;
         }
     };
@@ -314,7 +478,6 @@ export default function WatchInfo() {
         );
     }
 
-    console.log(content);
     return (
         <KeyboardAvoidingView
             style={styles.container}
@@ -335,7 +498,7 @@ export default function WatchInfo() {
             <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollViewContent}>
                 {/* Video Player / Image Display */}
                 <View style={styles.mediaContainer}>
-                    {content.video ? ( // Check for video first
+                    {content.video ? (
                         <Video
                             ref={videoRef}
                             style={styles.videoPlayer}
@@ -345,13 +508,13 @@ export default function WatchInfo() {
                             isLooping={false}
                             onPlaybackStatusUpdate={setStatus}
                         />
-                    ) : content.image ? ( // If no video, check for image
+                    ) : content.image ? (
                         <Image
                             source={{ uri: getFileUrl(content.image) }}
                             style={styles.imageDisplay}
                             resizeMode="contain"
                         />
-                    ) : ( // If neither video nor image, show placeholder
+                    ) : (
                         <View style={styles.placeholderMedia}>
                             <AntDesign name="filetext1" size={60} color="#999" />
                             <Text style={styles.placeholderMediaText}>No media available</Text>
@@ -395,20 +558,36 @@ export default function WatchInfo() {
 
                 {/* Interactive Section: Likes, Dislikes, Comments */}
                 <View style={styles.interactiveSection}>
-                    <TouchableOpacity style={styles.interactiveButton}>
-                        <AntDesign name="like2" size={24} color="#000c52" />
-                        <Text style={styles.interactiveText}>{content.likesCount || 0}</Text>
+                    <TouchableOpacity
+                        style={styles.interactiveButton}
+                        onPress={handleLike}
+                        disabled={isLikingDisliking}
+                    >
+                        <AntDesign
+                            name={userLikeStatus === 'liked' ? 'like1' : 'like2'}
+                            size={24}
+                            color={userLikeStatus === 'liked' ? '#000c52' : '#888'}
+                        />
+                        <Text style={styles.interactiveText}>{likesCount}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.interactiveButton}>
-                        <AntDesign name="dislike2" size={24} color="#000c52" />
-                        <Text style={styles.interactiveText}>{content.dislikesCount || 0}</Text>
+                    <TouchableOpacity
+                        style={styles.interactiveButton}
+                        onPress={handleDislike}
+                        disabled={isLikingDisliking}
+                    >
+                        <AntDesign
+                            name={userLikeStatus === 'disliked' ? 'dislike1' : 'dislike2'}
+                            size={24}
+                            color={userLikeStatus === 'disliked' ? '#000c52' : '#888'}
+                        />
+                        <Text style={styles.interactiveText}>{dislikesCount}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.interactiveButton}
                         onPress={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                     >
                         <Feather name="message-square" size={24} color="#000c52" />
-                        <Text style={styles.interactiveText}>{comments.length || 0}</Text>
+                        <Text style={styles.interactiveText}>{comments.length}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -437,81 +616,49 @@ export default function WatchInfo() {
                                 )}
                                 <View style={styles.commentContent}>
                                     <View style={styles.commentHeader}>
-                                        <Text style={styles.commentUsername}>{comment.user?.username || 'Anonymous'}</Text>
-                                        <Text style={styles.commentDate}>{formatCommentDate(comment.createdAt)}</Text>
-                                        <TouchableOpacity
-                                            onPress={() => handleDeleteComment(comment._id)}
-                                            style={styles.deleteCommentButton}
-                                        >
-                                            <AntDesign name="delete" size={18} color="red" />
-                                        </TouchableOpacity>
+                                        <Text style={styles.commentUsername}>
+                                            {comment.user?.username || 'Anonymous'}
+                                        </Text>
+                                        <Text style={styles.commentDate}>
+                                            {formatCommentDate(comment.createdAt)}
+                                        </Text>
                                     </View>
                                     <Text style={styles.commentText}>{comment.text}</Text>
-                                    {/* Display comment media if available */}
-                                    {comment.imagePath && (
-                                        <Image
-                                            source={{ uri: getFileUrl(comment.imagePath) }}
-                                            style={styles.commentMediaImage}
-                                            resizeMode="contain"
-                                        />
-                                    )}
-                                    {comment.videoPath && (
-                                        <Video
-                                            source={{ uri: getFileUrl(comment.videoPath) }}
-                                            style={styles.commentMediaVideo}
-                                            useNativeControls
-                                            resizeMode="contain"
-                                        />
+                                    {comment.user && currentUser && comment.user._id === currentUser._id && (
+                                        <TouchableOpacity 
+                                            style={styles.deleteCommentButton}
+                                            onPress={() => handleDeleteComment(comment._id)}
+                                        >
+                                            <Feather name="trash-2" size={16} color="#ff4444" />
+                                        </TouchableOpacity>
                                     )}
                                 </View>
                             </View>
                         ))
                     )}
-
-                    {/* Comment Input */}
-                    <View style={styles.commentInputContainer}>
-                        <TextInput
-                            style={styles.commentInputField}
-                            placeholder="Add a comment..."
-                            placeholderTextColor="#888"
-                            value={newComment}
-                            onChangeText={setNewComment}
-                            multiline
-                        />
-                        <TouchableOpacity
-                            style={styles.postCommentButton}
-                            onPress={handlePostComment}
-                            disabled={commentLoading || !newComment.trim()}
-                        >
-                            {commentLoading ? (
-                                <ActivityIndicator size="small" color="white" />
-                            ) : (
-                                <Feather name="send" size={24} color="white" />
-                            )}
-                        </TouchableOpacity>
-                    </View>
                 </View>
             </ScrollView>
 
-            {/* FOOTER NAV */}
-            <View style={styles.navBar}>
-                {[
-                    { name: 'Home', icon: require('../assets/home.png'), screen: 'Home' },
-                    { name: 'Quiz', icon: require('../assets/quiz.png'), screen: 'Quiz' },
-                    { name: 'Lesson', icon: require('../assets/lesson.png'), screen: 'Lesson' },
-                    { name: 'Post', icon: require('../assets/post.png'), screen: 'Post' },
-                    { name: 'Chat', icon: require('../assets/chatfeed.png'), screen: 'ChatFeed' },
-                    { name: 'Profile', icon: require('../assets/Sign-in.png'), screen: 'Profile' },
-                ].map(item => (
-                    <TouchableOpacity
-                        key={item.name}
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate(item.screen)}
-                    >
-                        <Image source={item.icon} style={styles.navIcon} />
-                        <Text style={styles.navText}>{item.name.toUpperCase()}</Text>
-                    </TouchableOpacity>
-                ))}
+            {/* Comment Input Section */}
+            <View style={styles.commentInputContainer}>
+                <TextInput
+                    style={styles.commentInput}
+                    placeholder="Write a comment..."
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    multiline
+                />
+                <TouchableOpacity
+                    style={styles.postCommentButton}
+                    onPress={handlePostComment}
+                    disabled={commentLoading || !newComment.trim()}
+                >
+                    {commentLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <Feather name="send" size={20} color="#fff" />
+                    )}
+                </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
@@ -520,214 +667,153 @@ export default function WatchInfo() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f2f2f2',
+        backgroundColor: '#fff',
     },
     topBar: {
+        height: Platform.OS === 'ios' ? 40 : 0,
         backgroundColor: '#000c52',
-        height: 50,
-        paddingTop: Platform.OS === 'ios' ? 30 : 0,
     },
     headerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         padding: 15,
-        backgroundColor: 'white',
         borderBottomWidth: 1,
-        borderBottomColor: '#ddd',
+        borderBottomColor: '#eee',
     },
     backButton: {
-        padding: 5,
+        marginRight: 15,
     },
     logo: {
-        width: 40,
-        height: 40,
+        width: 120,
+        height: 30,
         resizeMode: 'contain',
     },
     scrollViewContent: {
-        paddingBottom: 20,
+        paddingBottom: 80,
     },
     mediaContainer: {
         width: '100%',
-        backgroundColor: 'black',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: 200, // Ensure a minimum height for the container
+        aspectRatio: 16 / 9,
+        backgroundColor: '#000',
     },
     videoPlayer: {
         width: '100%',
-        aspectRatio: 16 / 9, // This will make the video player responsive
+        height: '100%',
     },
     imageDisplay: {
         width: '100%',
-        height: 250, // You can adjust this height or use aspectRatio if images have consistent aspect
-        resizeMode: 'contain',
+        height: '100%',
     },
     placeholderMedia: {
-        width: '100%',
-        height: 200,
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#e0e0e0',
+        backgroundColor: '#f0f0f0',
     },
     placeholderMediaText: {
         marginTop: 10,
-        color: '#666',
-        fontSize: 16,
+        color: '#999',
     },
     infoSection: {
         padding: 15,
-        backgroundColor: 'white',
-        marginHorizontal: 10,
-        borderRadius: 10,
-        marginTop: 15,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
     },
     contentTitle: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: '#333',
         marginBottom: 10,
+        color: '#000',
     },
     uploaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 15,
     },
     uploaderAvatar: {
         width: 40,
         height: 40,
         borderRadius: 20,
         marginRight: 10,
-        borderWidth: 1,
-        borderColor: '#eee',
     },
     uploaderDetails: {
         flex: 1,
     },
     uploaderName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
+        fontWeight: 'bold',
+        color: '#000',
     },
     uploadDate: {
-        fontSize: 13,
-        color: '#777',
+        color: '#888',
+        fontSize: 12,
     },
     subjectBadge: {
-        backgroundColor: '#28a745',
-        borderRadius: 15,
         paddingHorizontal: 10,
         paddingVertical: 5,
-        marginLeft: 'auto',
+        borderRadius: 15,
     },
     subjectBadgeText: {
-        color: 'white',
+        color: '#fff',
         fontSize: 12,
-        fontWeight: 'bold',
     },
     contentDescription: {
-        fontSize: 15,
-        color: '#555',
-        lineHeight: 22,
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#333',
         marginBottom: 15,
     },
     referenceLinkButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#e0f2f7',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        justifyContent: 'center',
+        marginTop: 10,
     },
     referenceLinkText: {
-        marginLeft: 8,
-        fontSize: 15,
         color: '#000c52',
-        fontWeight: 'bold',
+        marginLeft: 5,
         textDecorationLine: 'underline',
     },
     interactiveSection: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         paddingVertical: 15,
-        marginHorizontal: 10,
-        marginTop: 10,
-        backgroundColor: 'white',
-        borderRadius: 10,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#eee',
     },
     interactiveButton: {
-        flexDirection: 'row',
         alignItems: 'center',
-        padding: 5,
     },
     interactiveText: {
-        marginLeft: 5,
-        fontSize: 16,
-        color: '#000c52',
-        fontWeight: 'bold',
+        marginTop: 5,
+        color: '#000',
     },
     commentsSection: {
         padding: 15,
-        backgroundColor: 'white',
-        marginHorizontal: 10,
-        borderRadius: 10,
-        marginTop: 15,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
     },
     commentsTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 10,
-    },
-    commentErrorText: {
-        fontSize: 14,
-        color: 'red',
-        textAlign: 'center',
-        paddingVertical: 10,
-    },
-    noCommentsText: {
-        fontSize: 14,
-        color: '#777',
-        textAlign: 'center',
-        paddingVertical: 20,
+        marginBottom: 15,
+        color: '#000',
     },
     commentItem: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 15,
-        paddingBottom: 10,
-        borderBottomWidth: 0.5,
+        padding: 10,
+        borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
     commentAvatar: {
-        width: 35,
-        height: 35,
-        borderRadius: 17.5,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         marginRight: 10,
-        borderWidth: 1,
-        borderColor: '#ddd',
     },
     commentAvatarPlaceholder: {
-        width: 35,
-        height: 35,
-        borderRadius: 17.5,
-        marginRight: 10,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: '#000c52',
-        justifyContent: 'center',
         alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
     },
     commentContent: {
         flex: 1,
@@ -735,66 +821,60 @@ const styles = StyleSheet.create({
     commentHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 3,
+        marginBottom: 5,
     },
     commentUsername: {
         fontWeight: 'bold',
-        fontSize: 14,
-        color: '#333',
+        color: '#000',
     },
     commentDate: {
-        fontSize: 12,
         color: '#888',
-        marginLeft: 10,
+        fontSize: 12,
     },
     commentText: {
-        fontSize: 14,
-        color: '#555',
-        lineHeight: 20,
-        marginBottom: 5,
-    },
-    commentMediaImage: {
-        width: '100%',
-        height: 150,
-        borderRadius: 8,
-        marginBottom: 5,
-    },
-    commentMediaVideo: {
-        width: '100%',
-        height: 150,
-        borderRadius: 8,
-        marginBottom: 5,
+        color: '#333',
     },
     deleteCommentButton: {
-        marginLeft: 'auto',
-        padding: 5,
+        alignSelf: 'flex-end',
+        marginTop: 5,
+    },
+    commentErrorText: {
+        color: 'red',
+        marginVertical: 20,
+        textAlign: 'center',
+    },
+    noCommentsText: {
+        color: '#888',
+        textAlign: 'center',
+        marginVertical: 20,
     },
     commentInputContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 15,
+        padding: 10,
+        backgroundColor: '#fff',
         borderTopWidth: 1,
         borderTopColor: '#eee',
-        paddingTop: 10,
     },
-    commentInputField: {
+    commentInput: {
         flex: 1,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        paddingVertical: Platform.OS === 'ios' ? 10 : 8,
-        marginRight: 10,
+        minHeight: 40,
         maxHeight: 100,
-        fontSize: 15,
-        borderColor: '#ddd',
-        borderWidth: 1,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 20,
+        marginRight: 10,
     },
     postCommentButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: '#000c52',
-        borderRadius: 25,
-        width: 50,
-        height: 50,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -802,11 +882,9 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f2f2f2',
     },
     loadingText: {
         marginTop: 10,
-        fontSize: 16,
         color: '#000c52',
     },
     errorContainer: {
@@ -814,34 +892,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: '#f2f2f2',
     },
     errorText: {
-        fontSize: 16,
         color: 'red',
         textAlign: 'center',
         marginBottom: 20,
     },
     retryButton: {
         backgroundColor: '#000c52',
-        paddingVertical: 10,
         paddingHorizontal: 20,
-        borderRadius: 8,
+        paddingVertical: 10,
+        borderRadius: 5,
     },
     retryButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
+        color: '#fff',
     },
-    navBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: 'white',
-        borderTopWidth: 1,
-        borderTopColor: '#ccc',
-        paddingVertical: Platform.OS === 'ios' ? 20 : 10
-    },
-    navItem: { alignItems: 'center' },
-    navIcon: { width: 24, height: 24, marginBottom: 4 },
-    navText: { fontSize: 11, color: '#000d63', fontWeight: '500' },
 });

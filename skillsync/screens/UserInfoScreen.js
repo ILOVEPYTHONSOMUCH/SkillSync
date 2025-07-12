@@ -12,7 +12,17 @@ import { useNavigation, useIsFocused } from '@react-navigation/native'; // Impor
 
 const API_BASE = 'http://192.168.41.31:6000'; // Ensure this matches your backend API base URL
 const { width } = Dimensions.get('window');
-const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History'];
+const SUBJECTS = [
+  'Math',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Social',
+  'History',
+  'Music',
+  'Art',
+  'English'
+];;
 
 // Reusable Tag component for displaying subjects (not interactive here)
 const Tag = ({ label, selected }) => (

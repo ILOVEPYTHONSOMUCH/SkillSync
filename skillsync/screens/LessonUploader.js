@@ -27,7 +27,17 @@ export default function LessonUploader({ navigation }) { // Ensure 'navigation' 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [subject, setSubject] = useState('Physics'); // Default subject
-  const subjects = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History', 'Music']; // List of subjects for dropdown
+  const subjects = [
+    'Math',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Social',
+    'History',
+    'Music',
+    'Art',
+    'English'
+  ];
 
   const [videoAsset, setVideoAsset] = useState(null);
   const [uploading, setUploading] = useState(false);

@@ -11,21 +11,27 @@ import {
     Dimensions,
     KeyboardAvoidingView,
     Platform,
-    // Linking // Removed as it's not used in this component's current logic
+    Modal,
+    FlatList
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { AntDesign, Feather } from '@expo/vector-icons';
+import { Navbar } from '../components/NavbarAndTheme.js';
 
 const API_BASE = 'http://192.168.41.31:6000';
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function PostScreen() {
     const [posts, setPosts] = useState([]);
     const [search, setSearch] = useState('');
     const [user, setUser] = useState({ username: '', totalScore: 0, avatar: null, grade: null, _id: null });
     const navigation = useNavigation();
+    const [filterModalVisible, setFilterModalVisible] = useState(false);
+    const [selectedTeachSubjects, setSelectedTeachSubjects] = useState([]);
+    const [selectedLearnSubjects, setSelectedLearnSubjects] = useState([]);
+    const [allSubjects, setAllSubjects] = useState([]);
 
     useEffect(() => {
         (async () => {
@@ -72,6 +78,15 @@ export default function PostScreen() {
                 throw new Error('Failed to load posts');
             }
             const rawPosts = await res.json();
+            
+            // Extract all unique subjects for filtering
+            const subjects = new Set();
+            rawPosts.forEach(post => {
+                (post.teachSubjects || []).forEach(subject => subjects.add(subject));
+                (post.learnSubjects || []).forEach(subject => subjects.add(subject));
+            });
+            setAllSubjects(Array.from(subjects).sort());
+
             const enrichedPosts = await Promise.all(
                 rawPosts.map(async (post) => {
                     let authorUsername = 'Unknown';
@@ -97,7 +112,7 @@ export default function PostScreen() {
                         isLikedByUser: isLikedByUser,
                         isDislikedByUser: isDislikedByUser,
                         viewsCount: post.viewsCount || 0,
-                        commentCount: post.commentCount || 0,
+                        commentsCount: post.commentsCount || 0,
                         teachSubjects: post.teachSubjects || [],
                         learnSubjects: post.learnSubjects || [],
                     };
@@ -163,39 +178,42 @@ export default function PostScreen() {
         }
     }, []);
 
-    // MODIFIED: Function to handle post press, increment view count, and navigate
     const handlePostPress = useCallback(async (postId) => {
         try {
-            // Increment view count (fire and forget for UI responsiveness)
             fetch(`${API_BASE}/api/posts/${postId}/view`, {
                 method: 'POST',
             }).then(response => {
                 if (!response.ok) {
                     console.warn(`Failed to increment view for post ${postId}`);
+                    return;
+                }
+                return response.json();
+            }).then(data => {
+                if (data) {
+                    setPosts(prevPosts =>
+                        prevPosts.map(post =>
+                            post._id === postId
+                                ? { ...post, viewsCount: data.viewsCount }
+                                : post
+                        )
+                    );
                 }
             }).catch(e => {
                 console.error("Error sending view increment request:", e);
             });
-
-            // Optimistically update the viewsCount in the local state immediately
-            setPosts(prevPosts =>
-                prevPosts.map(post =>
-                    post._id === postId
-                        ? { ...post, viewsCount: (post.viewsCount || 0) + 1 }
-                        : post
-                )
-            );
         } catch (e) {
             console.error("Error during view increment logic:", e);
-            // Even if view increment fails, proceed with navigation
         } finally {
-            // Navigate to WatchInfo.js with the post ID and type
-            // Ensure 'WatchInfo' matches the name in your navigation stack
-            navigation.navigate('WatchInfo', { contentId: postId, contentType: 'post' });
+            navigation.navigate('WatchInfo', { 
+                contentId: postId, 
+                contentType: 'post',
+                onCommentAdded: () => {
+                    loadPosts();
+                }
+            });
         }
-    }, [navigation]);
+    }, [navigation, loadPosts]);
 
-    // handleVideoPress now simply calls handlePostPress as it's the same navigation logic
     const handleVideoPress = useCallback((postId) => {
         handlePostPress(postId);
     }, [handlePostPress]);
@@ -205,8 +223,53 @@ export default function PostScreen() {
         return new Date(dateString).toLocaleDateString(undefined, options);
     };
 
-    const filtered = posts.filter(post =>
-        (post.description || '').toLowerCase().includes(search.toLowerCase())
+    const toggleTeachSubject = (subject) => {
+        setSelectedTeachSubjects(prev => 
+            prev.includes(subject) 
+                ? prev.filter(s => s !== subject) 
+                : [...prev, subject]
+        );
+    };
+
+    const toggleLearnSubject = (subject) => {
+        setSelectedLearnSubjects(prev => 
+            prev.includes(subject) 
+                ? prev.filter(s => s !== subject) 
+                : [...prev, subject]
+        );
+    };
+
+    const filtered = posts.filter(post => {
+        const matchesSearch = (post.description || '').toLowerCase().includes(search.toLowerCase());
+        const matchesTeachSubjects = selectedTeachSubjects.length === 0 || 
+            (post.teachSubjects && selectedTeachSubjects.some(subj => post.teachSubjects.includes(subj)));
+        const matchesLearnSubjects = selectedLearnSubjects.length === 0 || 
+            (post.learnSubjects && selectedLearnSubjects.some(subj => post.learnSubjects.includes(subj)));
+        return matchesSearch && matchesTeachSubjects && matchesLearnSubjects;
+    });
+
+    const renderSubjectItem = ({ item }) => (
+        <View style={styles.subjectFilterContainer}>
+            <TouchableOpacity 
+                style={[
+                    styles.subjectFilterButton,
+                    selectedTeachSubjects.includes(item) && styles.selectedTeachSubject,
+                ]}
+                onPress={() => toggleTeachSubject(item)}
+            >
+                <Text style={styles.subjectFilterText}>Teach: {item}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+                style={[
+                    styles.subjectFilterButton,
+                    selectedLearnSubjects.includes(item) && styles.selectedLearnSubject,
+                ]}
+                onPress={() => toggleLearnSubject(item)}
+            >
+                <Text style={styles.subjectFilterText}>Learn: {item}</Text>
+            </TouchableOpacity>
+        </View>
     );
 
     return (
@@ -214,7 +277,7 @@ export default function PostScreen() {
             <KeyboardAvoidingView
                 style={styles.content}
                 behavior={Platform.select({ ios: 'padding', android: 'height' })}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0} // Adjust offset for Android if needed
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
             >
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
@@ -233,21 +296,79 @@ export default function PostScreen() {
                     <Image source={require('../assets/SkillSyncLogo.png')} style={styles.logo} />
                 </View>
 
-                <View style={styles.searchBar}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Search Posts 🔍"
-                        value={search}
-                        onChangeText={setSearch}
-                    />
+                <View style={styles.filterRow}>
+                    <TouchableOpacity 
+                        style={styles.filterButton}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <Feather name="filter" size={20} color="#000066" />
+                        <Text style={styles.filterButtonText}>
+                            Filter {selectedTeachSubjects.length + selectedLearnSubjects.length > 0 ? 
+                                `(${selectedTeachSubjects.length + selectedLearnSubjects.length})` : ''}
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <View style={styles.searchBar}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Search Posts 🔍"
+                            value={search}
+                            onChangeText={setSearch}
+                        />
+                    </View>
                 </View>
+
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={filterModalVisible}
+                    onRequestClose={() => setFilterModalVisible(false)}
+                >
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Filter Subjects</Text>
+                                <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                                    <Feather name="x" size={24} color="#000" />
+                                </TouchableOpacity>
+                            </View>
+                            
+                            <FlatList
+                                data={allSubjects}
+                                renderItem={renderSubjectItem}
+                                keyExtractor={(item) => item}
+                                contentContainerStyle={styles.subjectList}
+                            />
+                            
+                            <View style={styles.modalFooter}>
+                                <TouchableOpacity 
+                                    style={styles.clearButton}
+                                    onPress={() => {
+                                        setSelectedTeachSubjects([]);
+                                        setSelectedLearnSubjects([]);
+                                    }}
+                                >
+                                    <Text style={styles.clearButtonText}>Clear All</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.applyButton}
+                                    onPress={() => setFilterModalVisible(false)}
+                                >
+                                    <Text style={styles.applyButtonText}>Apply Filters</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
 
                 <ScrollView style={styles.feedContainer} contentContainerStyle={{ paddingBottom: 20 }}>
                     {filtered.length === 0 ? (
                         <View style={styles.noPostsContainer}>
                             <Text style={styles.noPostsText}>
-                                It looks like there are no posts here yet.
-                                {"\n"}Be the first to create one!
+                                {search || selectedTeachSubjects.length > 0 || selectedLearnSubjects.length > 0 
+                                    ? "No posts match your filters" 
+                                    : "It looks like there are no posts here yet.\nBe the first to create one!"}
                             </Text>
                             <TouchableOpacity
                                 style={styles.createPostButton}
@@ -261,7 +382,7 @@ export default function PostScreen() {
                             <TouchableOpacity
                                 key={post._id}
                                 style={styles.feedCard}
-                                onPress={() => handlePostPress(post._id)} // Increment views & navigate when card is pressed
+                                onPress={() => handlePostPress(post._id)}
                             >
                                 <View style={styles.feedHeader}>
                                     {post.authorAvatar ? (
@@ -278,7 +399,6 @@ export default function PostScreen() {
                                 </View>
                                 <Text style={styles.feedContent}>{post.title}</Text>
 
-                                {/* Display Teach Subjects with icon */}
                                 {post.teachSubjects && post.teachSubjects.length > 0 && (
                                     <View style={styles.subjectRow}>
                                         <Feather name="book-open" size={16} color="#4CAF50" style={styles.subjectIcon} />
@@ -289,7 +409,6 @@ export default function PostScreen() {
                                     </View>
                                 )}
 
-                                {/* Display Learn Subjects with icon */}
                                 {post.learnSubjects && post.learnSubjects.length > 0 && (
                                     <View style={styles.subjectRow}>
                                         <Feather name="bulb" size={16} color="#FFC107" style={styles.subjectIcon} />
@@ -300,7 +419,6 @@ export default function PostScreen() {
                                     </View>
                                 )}
 
-                                {/* Image display */}
                                 {post.image && (
                                     <Image
                                         source={{ uri: fileUrlFrom(post.image) }}
@@ -309,11 +427,10 @@ export default function PostScreen() {
                                     />
                                 )}
 
-                                {/* Video thumbnail display */}
                                 {post.video && (
                                     <TouchableOpacity
                                         style={styles.videoContainer}
-                                        onPress={() => handleVideoPress(post._id)} // Pass postId
+                                        onPress={() => handleVideoPress(post._id)}
                                     >
                                         {post.thumbnail ? (
                                             <Image
@@ -336,7 +453,6 @@ export default function PostScreen() {
                                     </TouchableOpacity>
                                 )}
 
-                                {/* NEW: Views, Likes, Dislikes, Comments Row */}
                                 <View style={styles.statsRow}>
                                     <View style={styles.statItem}>
                                         <Feather name="eye" size={16} color="#666" />
@@ -368,10 +484,10 @@ export default function PostScreen() {
                                             {post.dislikesCount || 0}
                                         </Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.statItem} onPress={()=>{Alert.alert('Info', 'Click the Post to comment !')}}>
+                                    <View style={styles.statItem}>
                                         <Feather name="message-square" size={16} color="#666" />
-                                        <Text style={styles.statText}>{post.commentCount || 0}</Text>
-                                    </TouchableOpacity>
+                                        <Text style={styles.statText}>{post.commentsCount || 0}</Text>
+                                    </View>
                                 </View>
                             </TouchableOpacity>
                         ))
@@ -379,32 +495,7 @@ export default function PostScreen() {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <View style={styles.navBar}>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-                    <Image source={require('../assets/home.png')} style={styles.navIcon} />
-                    <Text style={styles.navText}>HOME</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
-                    <Image source={require('../assets/quiz.png')} style={styles.navIcon} />
-                    <Text style={styles.navText}>QUIZ</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
-                    <Image source={require('../assets/lesson.png')} style={styles.navIcon} />
-                    <Text style={styles.navText}>LESSON</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
-                    <Image source={require('../assets/post.png')} style={styles.navIcon} />
-                    <Text style={styles.navText}>POST</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
-                    <Image source={require('../assets/chatfeed.png')} style={styles.navIcon} />
-                    <Text style={styles.navText}>CHAT</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-                    <Image source={require('../assets/Sign-in.png')} style={styles.navIcon} />
-                    <Text style={styles.navText}>PROFILE</Text>
-                </TouchableOpacity>
-            </View>
+            <Navbar></Navbar>
         </View>
     );
 }
@@ -444,9 +535,28 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40
     },
+    filterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 10,
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f1f1f1',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        marginRight: 10,
+    },
+    filterButtonText: {
+        marginLeft: 5,
+        color: '#000066',
+        fontWeight: '500',
+    },
     searchBar: {
-        marginHorizontal: 20,
-        marginBottom: 10
+        flex: 1,
     },
     input: {
         backgroundColor: '#ddd',
@@ -454,6 +564,81 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         fontSize: 16
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        maxHeight: height * 0.8,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    subjectList: {
+        paddingBottom: 20,
+    },
+    subjectFilterContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+    },
+    subjectFilterButton: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#f1f1f1',
+        marginHorizontal: 5,
+        alignItems: 'center',
+    },
+    selectedTeachSubject: {
+        backgroundColor: '#4CAF50',
+    },
+    selectedLearnSubject: {
+        backgroundColor: '#FFC107',
+    },
+    subjectFilterText: {
+        fontSize: 14,
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 20,
+    },
+    clearButton: {
+        flex: 1,
+        padding: 15,
+        backgroundColor: '#f1f1f1',
+        borderRadius: 10,
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    applyButton: {
+        flex: 1,
+        padding: 15,
+        backgroundColor: '#000066',
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    clearButtonText: {
+        color: '#000',
+        fontWeight: 'bold',
+    },
+    applyButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
     feedContainer: {
         paddingHorizontal: 20
@@ -538,24 +723,6 @@ const styles = StyleSheet.create({
         position: 'absolute',
         zIndex: 1,
     },
-    commentBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 12
-    },
-    imageIcon: {
-        width: 24,
-        height: 24,
-        marginRight: 8
-    },
-    commentPlaceholder: {
-        flex: 1,
-        color: '#888'
-    },
-    commentSubmit: {
-        color: '#000066',
-        fontWeight: 'bold'
-    },
     noPostsContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -580,34 +747,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
-    },
-    navBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        height: 60,
-        borderTopColor: '#ccc',
-        borderTopWidth: 1,
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        paddingBottom: Platform.OS === 'ios' ? 10 : 0,
-    },
-    navItem: {
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    navIcon: {
-        width: 24,
-        height: 24,
-        marginBottom: 2
-    },
-    navText: {
-        fontSize: 11,
-        color: '#000d63',
-        fontWeight: '500'
     },
     statsRow: {
         flexDirection: 'row',
