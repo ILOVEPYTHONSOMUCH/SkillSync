@@ -288,8 +288,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   headerDummy: {
-    backgroundColor: '#000c52', // Changed to the requested color
-    height: 60,
+    backgroundColor: '#000066', // Changed to the requested color
+    height: 50,
   },
   topControls: {
     backgroundColor: appColors.cardBackground,

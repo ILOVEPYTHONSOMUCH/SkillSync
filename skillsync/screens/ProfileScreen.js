@@ -377,7 +377,7 @@ const LabelledInput = ({ label, value, onChange, secure, icon, onIconPress, edit
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  topBar: { backgroundColor: '#000066', padding: 20, alignItems: 'center' },
+  topBar: { backgroundColor: '#000066', height: 50, alignItems: 'center' },
   logo: { height: 30, resizeMode: 'contain' },
   body: { padding: 20, paddingBottom: 80 },
   profileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },

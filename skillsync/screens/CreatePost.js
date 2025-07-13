@@ -393,7 +393,7 @@ const navStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  editor: { padding: 16, paddingBottom: 80, paddingTop: 10 }, // Keep paddingTop minimal, as the navbar has its own padding
+  editor: { padding: 16, paddingBottom: 50, paddingTop: 10 }, // Keep paddingTop minimal, as the navbar has its own padding
   uploadPostTitle: { // New style for "Upload Post" title below navbar
     fontSize: 22,
     fontWeight: 'bold',
