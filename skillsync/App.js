@@ -17,6 +17,7 @@ import DoQuiz from './screens/DoQuiz';
 import QuizResults from './screens/QuizResults';
 import UserInfoScreen from './screens/UserInfoScreen';
 import WatchInfo from './screens/WatchInfo';
+import ChatScreen from './screens/ChatScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
         <Stack.Screen name="QuizResults" component={QuizResults} />
         <Stack.Screen name="UserInfoScreen" component={UserInfoScreen} />
         <Stack.Screen name="WatchInfo" component={WatchInfo} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

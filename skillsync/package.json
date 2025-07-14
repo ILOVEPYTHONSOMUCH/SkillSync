@@ -24,10 +24,12 @@
     "moment": "^2.30.1",
     "react": "19.0.0",
     "react-native": "0.79.5",
+    "react-native-gifted-chat": "^2.8.1",
     "react-native-picker": "^4.3.7",
     "react-native-safe-area-context": "^5.5.1",
     "react-native-screens": "^4.11.1",
-    "react-native-video": "^6.16.1"
+    "react-native-video": "^6.16.1",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@react-native-community/cli": "latest",

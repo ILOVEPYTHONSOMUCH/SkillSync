@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
+  Text, // Ensure Text is imported
   StyleSheet,
   TextInput,
   Image,
@@ -20,11 +20,9 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- Image Imports ---
-// IMPORTANT: Ensure these paths are correct relative to THIS file's location.
 const SkillSyncLogo = require('../assets/SkillSyncLogo.png');
-const UserAvatarPlaceholder = require('../assets/Sign-in.png'); // Default placeholder if no avatar
+const UserAvatarPlaceholder = require('../assets/Sign-in.png');
 
-// Remote image for search icon (can be replaced with a local asset if preferred)
 const SearchIconUrl = 'https://img.icons8.com/ios-filled/20/search--v1.png';
 
 // --- API Base URL ---
@@ -41,7 +39,7 @@ export default function ChatFeed() {
   const [receivedRequests, setReceivedRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
-  const [currentUserProfile, setCurrentUserProfile] = useState(null); // Now stores full user object
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
 
   // --- Loading & Error States ---
   const [loadingChats, setLoadingChats] = useState(true);
@@ -59,7 +57,6 @@ export default function ChatFeed() {
   const [allUsersSearchQuery, setAllUsersSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Function to get the authentication token
   const getToken = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -75,8 +72,6 @@ export default function ChatFeed() {
       return null;
     }
   };
-
-  // --- API Fetching Functions ---
 
   const fetchChats = useCallback(async () => {
     setLoadingChats(true);
@@ -111,7 +106,7 @@ export default function ChatFeed() {
       const headers = { Authorization: `Bearer ${token}` };
       const responseReceived = await fetch(`${API_BASE_URL}/chat/friends/requests/received`, { headers: headers, });
       const dataReceived = await responseReceived.json();
-      const responseSent = await await fetch(`${API_BASE_URL}/chat/friends/requests/sent`, { headers: headers, });
+      const responseSent = await fetch(`${API_BASE_URL}/chat/friends/requests/sent`, { headers: headers, });
       const dataSent = await responseSent.json();
       if (responseReceived.ok) { setReceivedRequests(dataReceived); } else { console.error("Received requests error:", dataReceived.msg || dataReceived); setErrorRequests(dataReceived.msg || 'Failed to fetch received requests.'); }
       if (responseSent.ok) { console.log('Sent requests:', dataSent); setSentRequests(dataSent); } else { console.error("Sent requests error:", dataSent.msg || dataSent); setErrorRequests(prev => prev ? prev + ' Failed to fetch sent requests.' : 'Failed to fetch sent requests.'); }
@@ -166,10 +161,9 @@ export default function ChatFeed() {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json(); // 'data' is the full user object
+      const data = await response.json();
 
       if (response.ok) {
-        // Store the entire user object in state
         setCurrentUserProfile(data);
       } else {
         setErrorProfile(data.msg || 'Failed to fetch user profile.');
@@ -186,8 +180,6 @@ export default function ChatFeed() {
       setLoadingProfile(false);
     }
   }, []);
-
-  // --- Effect Hooks for Data Fetching ---
 
   useEffect(() => {
     if (isFocused) {
@@ -213,8 +205,6 @@ export default function ChatFeed() {
     setRefreshing(false);
   }, [activeTab, fetchChats, fetchFriends, fetchRequests, fetchAllUsers, fetchCurrentUserProfile, allUsersSearchQuery]);
 
-  // --- Interaction Handlers with API Calls ---
-
   const handleFriendRequest = async (recipientId) => {
     try {
       const token = await getToken(); if (!token) return;
@@ -224,13 +214,35 @@ export default function ChatFeed() {
     } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error sending friend request:", err); }
   };
 
-  const handleAcceptRequest = async (requesterId) => {
+  const handleAcceptRequest = async (friendshipId) => {
     try {
-      const token = await getToken(); if (!token) return;
-      const response = await fetch(`${API_BASE_URL}/chat/friends/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ requesterId }), });
+      const token = await getToken();
+      if (!token) return;
+      const response = await fetch(
+        `${API_BASE_URL}/chat/friends/accept/${friendshipId}`, 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       const data = await response.json();
-      if (response.ok) { Alert.alert('Success', data.msg || 'Friend request accepted!'); fetchRequests(); fetchFriends(); fetchChats(); fetchAllUsers(allUsersSearchQuery); } else { Alert.alert('Error', data.msg || 'Failed to accept request.'); console.error("Error accepting request:", data); }
-    } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error accepting request:", err); }
+      if (response.ok) {
+        Alert.alert('Success', data.msg || 'Friend request accepted!');
+        fetchRequests();
+        fetchFriends();
+        fetchChats();
+        fetchAllUsers(allUsersSearchQuery);
+      } else {
+        Alert.alert('Error', data.msg || 'Failed to accept request.');
+        console.error("Error accepting request:", data);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Network error or server unreachable.');
+      console.error("Network error accepting request:", err);
+    }
   };
 
   const handleRejectRequest = async (requesterId) => {
@@ -252,37 +264,74 @@ export default function ChatFeed() {
   };
 
   const handleRemoveFriend = async (friendId) => {
-    Alert.alert("Remove Friend", "Are you sure you want to remove this friend?",
-      [{ text: "Cancel", style: "cancel" },
-      {
-        text: "Remove", onPress: async () => {
-          try {
-            const token = await getToken(); if (!token) return;
-            const response = await fetch(`${API_BASE_URL}/chat/friends/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, }, body: JSON.stringify({ friendId }), });
-            const data = await response.json();
-            if (response.ok) { Alert.alert('Success', data.msg || 'Friend removed.'); fetchFriends(); fetchChats(); fetchAllUsers(allUsersSearchQuery); } else { Alert.alert('Error', data.msg || 'Failed to remove friend.'); console.error("Error removing friend:", data); }
-          } catch (err) { Alert.alert('Error', 'Network error or server unreachable.'); console.error("Network error removing friend:", err); }
-        }, style: "destructive"
+    Alert.alert(
+        "Remove Friend",
+        "Are you sure you want to remove this friend?",
+        [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Remove",
+                onPress: async () => {
+                    try {
+                        const token = await getToken(); // getToken() must be accessible in this scope
+                        if (!token) {
+                            console.warn("handleRemoveFriend: No token found, cannot proceed.");
+                            return;
+                        }
+
+                        console.log("handleRemoveFriend: Attempting to remove friend with ID:", friendId);
+                        const response = await fetch(`${API_BASE_URL}/api/chat/friends/remove/`, { // Ensure API_BASE is used
+                            method: 'POST', // Matches your backend route
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ friendId }), // Sending friendId in the body
+                        });
+
+                        const data = await response.json();
+                        if (response.ok) {
+                            Alert.alert('Success', data.msg || 'Friend removed successfully.');
+                            console.log("handleRemoveFriend: Friend removed success:", data.msg);
+                            // Assuming these functions exist and update your UI
+                            // You might need to pass these as props or use context/redux
+                            if (typeof fetchFriends === 'function') fetchFriends(); 
+                            if (typeof fetchChats === 'function') fetchChats();
+                            if (typeof fetchAllUsers === 'function') fetchAllUsers(allUsersSearchQuery); // Assuming allUsersSearchQuery is defined
+                        } else {
+                            Alert.alert('Error', data.msg || 'Failed to remove friend.');
+                            console.error("handleRemoveFriend: Error removing friend:", data);
+                        }
+                    } catch (err) {
+                        Alert.alert('Error', 'Network error or server unreachable. Please check your connection.');
+                        console.error("handleRemoveFriend: Network error removing friend:", err);
+                    }
+                },
+                style: "destructive" // Red button for destructive action
+            }
+        ]
+    );
+};
+
+
+  const handleChatItemPress = (chatId, otherParticipant) => {
+    navigation.navigate('ChatScreen', { 
+      chatId: chatId,
+      otherUser: {
+        _id: otherParticipant._id || otherParticipant.id,
+        username: otherParticipant.username,
+        avatar: otherParticipant.avatar
       }
-      ]);
+    });
   };
 
-  const handleChatItemPress = (chatId, otherParticipantUsername) => {
-    Alert.alert('Chat Selected', `Opening chat with ${otherParticipantUsername}${chatId ? ` (Chat ID: ${chatId})` : ''}.`);
-    // Example: navigation.navigate('ChatScreen', { chatId: chatId, participantName: otherParticipantUsername });
-  };
-
-  // --- Helper to render user avatars using the file route ---
   const renderAvatar = (avatarRelativePath) => {
     if (avatarRelativePath) {
-      // avatarRelativePath is expected to be like 'uploads/userId/images/filename.jpg'
-      // encodeURIComponent handles special characters, and backend fileRoute correctly resolves paths.
       return { uri: `${API_BASE_URL}/file?path=${encodeURIComponent(avatarRelativePath)}` };
     }
     return UserAvatarPlaceholder;
   };
 
-  // --- Function to truncate note for display ---
   const truncateNote = (note, maxLength = 50) => {
     if (!note) return '';
     if (note.length <= maxLength) {
@@ -296,14 +345,26 @@ export default function ChatFeed() {
   const renderChatsTab = () => (
     <View style={styles.tabContentContainer}>
       <Text style={styles.chatsTitle}>Chats</Text>
-      {loadingChats ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorChats ? ( <Text style={styles.errorText}>Error: {errorChats}</Text> ) : chats.length === 0 ? ( <Text style={styles.noDataText}>You have no chats yet.</Text> ) : (
+      {loadingChats ? (
+        <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} />
+      ) : errorChats ? (
+        <Text style={styles.errorText}>Error: {errorChats}</Text>
+      ) : chats.length === 0 ? (
+        <Text style={styles.noDataText}>You have no chats yet.</Text>
+      ) : (
         chats.map((chat) => (
           chat.otherParticipant && (
-            <TouchableOpacity key={chat.chatId} style={styles.chatItem} onPress={() => handleChatItemPress(chat.chatId, chat.otherParticipant.username)} >
+            <TouchableOpacity
+              key={chat.chatId}
+              style={styles.chatItem}
+              onPress={() => handleChatItemPress(chat.chatId, chat.otherParticipant)}
+            >
               <Image source={renderAvatar(chat.otherParticipant.avatar)} style={styles.chatAvatar} />
               <View style={styles.chatInfo}>
                 <Text style={styles.chatUsername}>{chat.otherParticipant.username}</Text>
-                <Text style={styles.chatLastMessage}>{chat.lastMessage ? chat.lastMessage.text : 'No messages yet'} {chat.lastMessage && ` : ${new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>
+                <Text style={styles.chatLastMessage}>
+                  {chat.lastMessage ? `${chat.lastMessage.text} : ${new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'No messages yet'}
+                </Text>
               </View>
             </TouchableOpacity>
           )
@@ -315,16 +376,27 @@ export default function ChatFeed() {
   const renderFriendsTab = () => (
     <View style={styles.tabContentContainer}>
       <Text style={styles.chatsTitle}>Your Friends</Text>
-      {loadingFriends ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorFriends ? ( <Text style={styles.errorText}>Error: {errorFriends}</Text> ) : friends.length === 0 ? ( <Text style={styles.noDataText}>You don't have any friends yet.</Text> ) : (
+      {loadingFriends ? (
+        <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} />
+      ) : errorFriends ? (
+        <Text style={styles.errorText}>Error: {errorFriends}</Text>
+      ) : friends.length === 0 ? (
+        <Text style={styles.noDataText}>You don't have any friends yet.</Text>
+      ) : (
         friends.map((friend) => (
           <View key={friend._id} style={styles.friendItem}>
             <Image source={renderAvatar(friend.avatar)} style={styles.friendAvatar} />
             <View style={styles.userInfoAndNote}>
-              <Text style={styles.friendName}>{friend.username}</Text>
+              {/* Ensure all dynamically rendered text is explicitly in Text components */}
+              <Text style={styles.friendName}>{friend.username || 'Unknown Friend'}</Text>
               {friend.note && <Text style={styles.userNote}>{truncateNote(friend.note, 30)}</Text>}
             </View>
-            <TouchableOpacity style={styles.chatFriendButton} onPress={() => handleChatItemPress(null, friend.username)}> <Text style={styles.friendActionButtonText}>Chat</Text> </TouchableOpacity>
-            <TouchableOpacity style={styles.removeFriendButton} onPress={() => handleRemoveFriend(friend._id)}> <Text style={styles.friendActionButtonText}>Remove</Text> </TouchableOpacity>
+            <TouchableOpacity style={styles.chatFriendButton} onPress={() => handleChatItemPress(null, friend.username)}>
+              <Text style={styles.friendActionButtonText}>Chat</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.removeFriendButton} onPress={() => handleRemoveFriend(friend._id)}>
+              <Text style={styles.friendActionButtonText}>Remove</Text>
+            </TouchableOpacity>
           </View>
         ))
       )}
@@ -333,33 +405,64 @@ export default function ChatFeed() {
 
   const renderRequestsTab = () => (
     <View style={styles.tabContentContainer}>
-      {loadingRequests ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorRequests ? ( <Text style={styles.errorText}>Error: {errorRequests}</Text> ) : (
+      {loadingRequests ? (
+        <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} />
+      ) : errorRequests ? (
+        <Text style={styles.errorText}>Error: {errorRequests}</Text>
+      ) : (
         <>
           <Text style={styles.chatsTitle}>Received Requests</Text>
-          {receivedRequests.length === 0 ? ( <Text style={styles.noDataText}>No pending received requests.</Text> ) : (
+          {receivedRequests.length === 0 ? (
+            <Text style={styles.noDataText}>No pending received requests.</Text>
+          ) : (
             receivedRequests.map((request) => (
               <View key={request._id} style={styles.requestItem}>
                 <Image source={renderAvatar(request.requester?.avatar)} style={styles.requestAvatar} />
                 <View style={styles.userInfoAndNote}>
-                  <Text style={styles.requestName}>{request.requester?.username || 'Unknown User'}</Text>
-                  {request.requester?.note && <Text style={styles.userNote}>{truncateNote(request.requester.note, 30)}</Text>}
+                  <Text style={styles.requestName}>
+                    {request.requester?.username || 'Unknown User'}
+                  </Text>
+                  {request.requester?.note && (
+                    <Text style={styles.userNote}>{truncateNote(request.requester.note, 30)}</Text>
+                  )}
                 </View>
-                <TouchableOpacity style={styles.acceptButton} onPress={() => handleAcceptRequest(request.requester?._id)}> <Text style={styles.requestButtonText}>Accept</Text> </TouchableOpacity>
-                <TouchableOpacity style={styles.rejectButton} onPress={() => handleRejectRequest(request.requester?._id)}> <Text style={styles.requestButtonText}>Reject</Text> </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.acceptButton}
+                  onPress={() => handleAcceptRequest(request._id)}
+                >
+                  <Text style={styles.requestButtonText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rejectButton}
+                  onPress={() => handleAcceptRequest(request._id)}
+                >
+                  <Text style={styles.requestButtonText}>Reject</Text>
+                </TouchableOpacity>
               </View>
             ))
           )}
 
           <Text style={[styles.chatsTitle, { marginTop: 20 }]}>Sent Requests</Text>
-          {sentRequests.length === 0 ? ( <Text style={styles.noDataText}>No pending sent requests.</Text> ) : (
+          {sentRequests.length === 0 ? (
+            <Text style={styles.noDataText}>No pending sent requests.</Text>
+          ) : (
             sentRequests.map((request) => (
               <View key={request._id} style={styles.requestItem}>
                 <Image source={renderAvatar(request.recipient?.avatar)} style={styles.requestAvatar} />
                 <View style={styles.userInfoAndNote}>
-                  <Text style={styles.requestName}>{request.recipient?.username || 'Unknown User'}</Text>
-                  {request.recipient?.note && <Text style={styles.userNote}>{truncateNote(request.recipient.note, 30)}</Text>}
+                  <Text style={styles.requestName}>
+                    {request.recipient?.username || 'Unknown User'}
+                  </Text>
+                  {request.recipient?.note && (
+                    <Text style={styles.userNote}>{truncateNote(request.recipient.note, 30)}</Text>
+                  )}
                 </View>
-                <TouchableOpacity style={styles.withdrawButton} onPress={() => handleWithdrawRequest(request.recipient?._id)}> <Text style={styles.requestButtonText}>Withdraw</Text> </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.withdrawButton}
+                  onPress={() => handleWithdrawRequest(request.recipient?._id)}
+                >
+                  <Text style={styles.requestButtonText}>Withdraw</Text>
+                </TouchableOpacity>
               </View>
             ))
           )}
@@ -374,60 +477,73 @@ export default function ChatFeed() {
       <View style={styles.searchContainerTab}>
         <View style={styles.searchBox}>
           <Image source={{ uri: SearchIconUrl }} style={styles.searchIcon} />
-          <TextInput style={styles.searchInput} placeholder="Search all users" placeholderTextColor="#888" value={allUsersSearchQuery} onChangeText={setAllUsersSearchQuery} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search all users"
+            placeholderTextColor="#888"
+            value={allUsersSearchQuery}
+            onChangeText={setAllUsersSearchQuery}
+          />
         </View>
       </View>
 
-      {loadingAllUsers ? ( <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} /> ) : errorAllUsers ? ( <Text style={styles.errorText}>Error: {errorAllUsers}</Text> ) : (
+      {loadingAllUsers ? (
+        <ActivityIndicator size="large" color="#000d63" style={styles.loadingIndicator} />
+      ) : errorAllUsers ? (
+        <Text style={styles.errorText}>Error: {errorAllUsers}</Text>
+      ) : (
         allUsers && allUsers.length > 0 ? (
           allUsers.map((user) => {
-              const isCurrentUser = currentUserProfile && user._id === currentUserProfile._id;
-              const isFriend = friends.some(f => f._id === user._id);
-              const hasReceivedRequest = receivedRequests.some(r => r.requester?._id === user._id);
-              const hasSentRequest = sentRequests.some(s => s.recipient?._id === user._id);
+            const isCurrentUser = currentUserProfile && user._id === currentUserProfile._id;
+            const isFriend = friends.some(f => f._id === user._id);
+            const hasReceivedRequest = receivedRequests.some(r => r.requester?._id === user._id);
+            const hasSentRequest = sentRequests.some(s => s.recipient?._id === user._id);
 
-              return (
-                // --- WRAP THE ENTIRE USER CARD IN TOUCHABLEOPACITY ---
-                <TouchableOpacity
-                  key={user._id}
-                  style={styles.userItem}
-                  onPress={() => navigation.navigate('UserInfoScreen', { userId: user._id})}
-                  disabled={isCurrentUser} // Disable navigation if it's the current user
-                >
-                  <Image source={renderAvatar(user.avatar)} style={styles.userAvatar} />
-                  <View style={styles.userInfoAndNote}>
-                    <Text style={styles.userName}>
-                      {user.username} {isCurrentUser && <Text style={styles.selfText}>(Self)</Text>}
-                    </Text>
-                    {user.note && <Text style={styles.userNote}>{truncateNote(user.note, 30)}</Text>}
-                  </View>
-                  {!isCurrentUser && (
-                    <View style={styles.userItemActions}>
-                      {isFriend ? (
-                        <>
-                          <TouchableOpacity style={styles.removeFriendButton} onPress={() => handleRemoveFriend(user._id)}>
-                            <Text style={styles.friendActionButtonText}>Remove</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.chatButton} onPress={() => handleChatItemPress(null, user.username)}>
-                            <Text style={styles.chatButtonText}>Chat</Text>
-                          </TouchableOpacity>
-                        </>
-                      ) : hasReceivedRequest ? (
-                        <Text style={styles.statusText}>Incoming Request</Text>
-                      ) : hasSentRequest ? (
-                        <Text style={styles.statusText}>Request Sent</Text>
-                      ) : (
-                        <TouchableOpacity style={styles.addUserButton} onPress={() => handleFriendRequest(user._id)}>
-                          <Text style={styles.addUserButtonText}>Add Friend</Text>
+            return (
+              <TouchableOpacity
+                key={user._id}
+                style={styles.userItem}
+                onPress={() => navigation.navigate('UserInfoScreen', { userId: user._id})}
+                disabled={isCurrentUser}
+              >
+                <Image source={renderAvatar(user.avatar)} style={styles.userAvatar} />
+                <View style={styles.userInfoAndNote}>
+                  <Text style={styles.userName}>
+                    {user.username} {isCurrentUser && <Text style={styles.selfText}>(Self)</Text>}
+                  </Text>
+                  {user.note && <Text style={styles.userNote}>{truncateNote(user.note, 30)}</Text>}
+                </View>
+                {!isCurrentUser && (
+                  <View style={styles.userItemActions}>
+                    {isFriend ? (
+                      <>
+                        <TouchableOpacity style={styles.removeFriendButton} onPress={() => handleRemoveFriend(user._id)}>
+                          <Text style={styles.friendActionButtonText}>Remove</Text>
                         </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })
+                        <TouchableOpacity style={styles.chatButton} onPress={() => handleChatItemPress(null, user.username)}>
+                          <Text style={styles.chatButtonText}>Chat</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : hasReceivedRequest ? (
+                      <Text style={styles.statusText}>Incoming Request</Text>
+                    ) : hasSentRequest ? (
+                      <Text style={styles.statusText}>Request Sent</Text>
+                    ) : (
+                      <TouchableOpacity style={styles.addUserButton} onPress={() => handleFriendRequest(user._id)}>
+                        <Text style={styles.addUserButtonText}>Add Friend</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })
         ) : (
-          allUsersSearchQuery.length > 0 ? ( <Text style={styles.noDataText}>No users match your search.</Text> ) : ( <Text style={styles.noDataText}>No users available.</Text> )
+          allUsersSearchQuery.length > 0 ? (
+            <Text style={styles.noDataText}>No users match your search.</Text>
+          ) : (
+            <Text style={styles.noDataText}>No users available.</Text>
+          )
         )
       )}
     </View>
@@ -704,20 +820,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
   friendAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 15,
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
     backgroundColor: '#e0e0e0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginRight: 15,
   },
   userInfoAndNote: {
     flex: 1,
@@ -725,26 +843,31 @@ const styles = StyleSheet.create({
   },
   friendName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
   },
+  userNote: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 2,
+  },
   chatFriendButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 15,
-    marginLeft: 'auto',
+    backgroundColor: '#000d63',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginLeft: 10,
   },
   removeFriendButton: {
     backgroundColor: '#dc3545',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 15,
-    marginLeft: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginLeft: 10,
   },
   friendActionButtonText: {
-    color: '#fff',
-    fontSize: 12,
+    color: 'white',
+    fontSize: 13,
     fontWeight: 'bold',
   },
   requestItem: {
@@ -753,143 +876,153 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
   requestAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 15,
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
     backgroundColor: '#e0e0e0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginRight: 15,
   },
   requestName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
   },
   acceptButton: {
     backgroundColor: '#28a745',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
     marginLeft: 'auto',
   },
   rejectButton: {
-    backgroundColor: '#6c757d',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginLeft: 8,
+    backgroundColor: '#dc3545',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginLeft: 10,
   },
   withdrawButton: {
     backgroundColor: '#ffc107',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
     marginLeft: 'auto',
   },
   requestButtonText: {
-    color: '#fff',
-    fontSize: 12,
+    color: 'white',
+    fontSize: 13,
     fontWeight: 'bold',
+  },
+  searchContainerTab: {
+    marginBottom: 15,
   },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 12,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
   userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
     backgroundColor: '#e0e0e0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginRight: 15,
   },
   userName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
-    marginBottom: 3,
-  },
-  userNote: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 3,
   },
   selfText: {
     fontSize: 12,
-    color: '#999',
+    color: '#888',
     fontStyle: 'italic',
-    fontWeight: 'normal',
+  },
+  userItemActions: {
+    flexDirection: 'row',
+    marginLeft: 'auto',
+    alignItems: 'center',
+  },
+  addUserButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+  },
+  addUserButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   statusText: {
     fontSize: 13,
     color: '#555',
     fontStyle: 'italic',
-    marginLeft: 'auto',
-  },
-  userItemActions: {
-    marginLeft: 'auto',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  addUserButton: {
-    backgroundColor: '#000d63',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    marginBottom: 5, // Space between Add Friend and Chat
-    alignItems: 'center',
-    minWidth: 100,
+    marginHorizontal: 5,
   },
   chatButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#28a745',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    alignItems: 'center',
-    minWidth: 100,
-  },
-  addUserButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: 'bold',
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginLeft: 10,
   },
   chatButtonText: {
-    color: '#fff',
+    color: 'white',
     fontSize: 13,
     fontWeight: 'bold',
   },
   navBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
     backgroundColor: '#fff',
-    height: 60,
-    borderTopColor: '#ccc',
     borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingVertical: 10,
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 5,
   },
-  navItem: { alignItems: 'center', justifyContent: 'center' },
-  navIcon: { width: 24, height: 24, marginBottom: 2 },
-  navText: { fontSize: 11, color: '#000d63', fontWeight: '500' }
+  navItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  navIcon: {
+    width: 25,
+    height: 25,
+    marginBottom: 4,
+    tintColor: '#000d63',
+  },
+  navText: {
+    fontSize: 10,
+    color: '#000d63',
+    fontWeight: '600',
+  },
 });
