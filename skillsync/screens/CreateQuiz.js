@@ -21,7 +21,7 @@ import { Picker } from '@react-native-picker/picker';
 import { AntDesign } from '@expo/vector-icons'; // For plus/delete icons
 
 // --- Configuration ---
-const API_BASE = 'http://192.168.41.31:6000'; // **IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND IP ADDRESS**
+const API_BASE = 'http://10.168.128.1:6000'; // **IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND IP ADDRESS**
 const { width } = Dimensions.get('window');
 
 const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History', 'Music', 'Art'];

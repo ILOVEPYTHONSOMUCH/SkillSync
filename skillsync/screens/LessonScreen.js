@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { AntDesign, Feather } from '@expo/vector-icons';
 
-const API_BASE = 'http://192.168.41.31:6000';
+const API_BASE = 'http://10.168.128.1:6000';
 
 const { width, height } = Dimensions.get('window');
 

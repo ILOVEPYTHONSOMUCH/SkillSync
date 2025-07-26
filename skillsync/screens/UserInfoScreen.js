@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useNavigation, useIsFocused } from '@react-navigation/native'; // Import useIsFocused
 
-const API_BASE = 'http://192.168.41.31:6000'; // Ensure this matches your backend API base URL
+const API_BASE = 'http://10.168.128.1:6000'; // Ensure this matches your backend API base URL
 const { width } = Dimensions.get('window');
 const SUBJECTS = [
   'Math',

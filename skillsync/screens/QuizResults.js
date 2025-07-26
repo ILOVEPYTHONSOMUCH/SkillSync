@@ -27,7 +27,7 @@ const images = {
   profileIcon: require('../assets/Sign-in.png')
 };
 
-const API_BASE = 'http://192.168.41.31:6000'; // Define your API base URL
+const API_BASE = 'http://10.168.128.1:6000'; // Define your API base URL
 
 // --- UPDATED Subject-specific Colors (for card headers) ---
 const subjectColors = {
