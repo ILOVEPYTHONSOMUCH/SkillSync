@@ -40,13 +40,6 @@ const API_BASE_URL = "http://10.168.128.1:6000/api";
 
 const getFileUrl = (filePath) => {
   if (!filePath) return null;
-  if (
-    filePath.startsWith("http://") ||
-    filePath.startsWith("https://") ||
-    filePath.startsWith("file://")
-  ) {
-    return filePath;
-  }
   return `${API_BASE_URL}/file?path=${encodeURIComponent(filePath)}`;
 };
 
@@ -202,7 +195,6 @@ export default function ChatScreen() {
         media: getFileUrl(msg.media),
         type: msg.media ? "file" : "text",
         fileName: msg.media ? msg.media.split("/").pop().split("?")[0] : null,
-        fileSize: "Unknown size",
       }));
     },
     [formatTime],
@@ -514,23 +506,6 @@ export default function ChatScreen() {
               <View style={[styles.messageBubble, messageBubbleStyle]}>
                 {message.type === "file" ? (
                   <View style={styles.fileMessageContent}>
-                    <Feather
-                      name="file-text"
-                      size={24}
-                      color={
-                        isMyMessage
-                          ? Colors.messageTextWhite
-                          : Colors.messageTextDark
-                      }
-                    />
-                    <View style={styles.fileDetails}>
-                      <Text style={[styles.fileNameText, messageTextStyle]}>
-                        {message.fileName}
-                      </Text>
-                      <Text style={[styles.fileSizeText, messageTextStyle]}>
-                        {message.fileSize}
-                      </Text>
-                    </View>
                     {message.media && (
                       <TouchableOpacity>
                         <Image

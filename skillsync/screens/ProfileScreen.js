@@ -74,7 +74,7 @@ export default function ProfileScreen() {
           confirm: '',
           note: user.note || '' // Added back the note field
         });
-        setPostCount(user.totalPosts || 0);
+        setPostCount(user.totalPosts || 1);
         setPoints(user.totalScore || 0);
       } catch (e) {
         Alert.alert('Error', e.message || 'Failed to load profile. Check your network.');

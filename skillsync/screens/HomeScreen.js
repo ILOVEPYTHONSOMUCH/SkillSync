@@ -372,7 +372,7 @@ export default function PostScreen() {
                             </Text>
                             <TouchableOpacity
                                 style={styles.createPostButton}
-                                onPress={() => navigation.navigate('Upload')}
+                                onPress={() => navigation.navigate('Post')}
                             >
                                 <Text style={styles.createPostButtonText}>Create New Post</Text>
                             </TouchableOpacity>
