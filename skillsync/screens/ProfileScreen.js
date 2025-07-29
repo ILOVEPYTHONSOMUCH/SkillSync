@@ -8,8 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
-
-const API_BASE = 'http://192.168.41.31:6000';
+import { API_BASE_URL } from "../components/NavbarAndTheme";
+const API_BASE = API_BASE_URL;
 const { width } = Dimensions.get('window');
 const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History'];
 
@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   const fileUrlFrom = relPath => {
     if (!relPath) return null;
     const p = relPath.replace(/\\/g, '/');
-    return `${API_BASE}/api/file?path=${encodeURIComponent(p)}`;
+    return `${API_BASE}/file?path=${encodeURIComponent(p)}`;
   };
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export default function ProfileScreen() {
         return navigation.replace('Login');
       }
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) {
@@ -74,8 +74,12 @@ export default function ProfileScreen() {
           confirm: '',
           note: user.note || '' // Added back the note field
         });
-        setPostCount(user.totalPosts || 0);
-        setPoints(user.totalScore || 0);
+        const res_count = await fetch(`${API_BASE}/users/${user._id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const result = await res_count.json();
+        setPostCount(result.totalPosts || 0);
+        setPoints(result.totalScore || 0);
       } catch (e) {
         Alert.alert('Error', e.message || 'Failed to load profile. Check your network.');
         console.error("Profile load error:", e);
@@ -148,7 +152,7 @@ export default function ProfileScreen() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/profile`, {
+      const res = await fetch(`${API_BASE}/auth/profile`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -20,7 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AntDesign, Feather } from '@expo/vector-icons';
 import { Navbar } from '../components/NavbarAndTheme.js';
 
-const API_BASE = 'http://192.168.41.31:6000';
+import { API_BASE_URL } from "../components/NavbarAndTheme";
+const API_BASE = API_BASE_URL; 
 const { width, height } = Dimensions.get('window');
 
 export default function PostScreen() {
@@ -38,7 +39,7 @@ export default function PostScreen() {
             const token = await AsyncStorage.getItem('userToken');
             if (!token) return;
             try {
-                const res = await fetch(`${API_BASE}/api/auth/me`, {
+                const res = await fetch(`${API_BASE}/auth/me`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (res.ok) {
@@ -60,14 +61,14 @@ export default function PostScreen() {
     const fileUrlFrom = useCallback(relPath => {
         if (!relPath) return null;
         const encoded = encodeURIComponent(relPath.replace(/\\/g, '/'));
-        return `${API_BASE}/api/file?path=${encoded}`;
+        return `${API_BASE}/file?path=${encoded}`;
     }, []);
 
     const loadPosts = useCallback(async () => {
         if (user.grade == null) return;
         try {
             const token = await AsyncStorage.getItem('userToken');
-            const res = await fetch(`${API_BASE}/api/search/posts?type=posts&grade=${user.grade}`, {
+            const res = await fetch(`${API_BASE}/search/posts?type=posts&grade=${user.grade}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) {
@@ -92,7 +93,7 @@ export default function PostScreen() {
                     let authorUsername = 'Unknown';
                     let authorAvatar = null;
                     try {
-                        const userRes = await fetch(`${API_BASE}/api/users/${post.user}`);
+                        const userRes = await fetch(`${API_BASE}/users/${post.user}`);
                         const userInfo = await userRes.json();
                         authorUsername = userInfo.username;
                         authorAvatar = userInfo.avatar;
@@ -145,7 +146,7 @@ export default function PostScreen() {
                 return;
             }
 
-            const res = await fetch(`${API_BASE}/api/posts/${postId}/${action}`, {
+            const res = await fetch(`${API_BASE}/posts/${postId}/${action}`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -180,7 +181,7 @@ export default function PostScreen() {
 
     const handlePostPress = useCallback(async (postId) => {
         try {
-            fetch(`${API_BASE}/api/posts/${postId}/view`, {
+            fetch(`${API_BASE}/posts/${postId}/view`, {
                 method: 'POST',
             }).then(response => {
                 if (!response.ok) {
@@ -372,7 +373,7 @@ export default function PostScreen() {
                             </Text>
                             <TouchableOpacity
                                 style={styles.createPostButton}
-                                onPress={() => navigation.navigate('Upload')}
+                                onPress={() => navigation.navigate('Post')}
                             >
                                 <Text style={styles.createPostButtonText}>Create New Post</Text>
                             </TouchableOpacity>

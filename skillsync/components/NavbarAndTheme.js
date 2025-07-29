@@ -28,7 +28,7 @@ export const Colors = {
     borderColor: '#ccc', // For navBar borderTopColor
     navTextBlue: '#000d63', // For navText
 };
-
+export const API_BASE_URL = "http://192.168.41.31:6000/api";
 // --- Navbar Component ---
 export function Navbar() {
     const navigation = useNavigation();

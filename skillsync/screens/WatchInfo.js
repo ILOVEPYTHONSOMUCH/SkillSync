@@ -18,8 +18,8 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { AntDesign, Feather } from '@expo/vector-icons';
 import { Video } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE = 'http://192.168.41.31:6000';
+import { API_BASE_URL } from "../components/NavbarAndTheme";
+const API_BASE  = API_BASE_URL;
 
 export default function WatchInfo() {
     const route = useRoute();
@@ -44,17 +44,18 @@ export default function WatchInfo() {
     const [dislikesCount, setDislikesCount] = useState(0);
     const [userLikeStatus, setUserLikeStatus] = useState(null);
     const [isLikingDisliking, setIsLikingDisliking] = useState(false);
-
+    const [relatedQuizzes, setRelatedQuizzes] = useState([]);
+    
     const { width } = Dimensions.get('window');
 
     const getFileUrl = useCallback((path) =>
-        path ? `${API_BASE}/api/file?path=${encodeURIComponent(path.replace(/\\/g, '/'))}` : null,
+        path ? `${API_BASE}/file?path=${encodeURIComponent(path.replace(/\\/g, '/'))}` : null,
         []
     );
 
     const fetchUserDetails = useCallback(async (userId, token) => {
         try {
-            const userRes = await fetch(`${API_BASE}/api/users/${userId}`, {
+            const userRes = await fetch(`${API_BASE}/users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (!userRes.ok) {
@@ -89,9 +90,9 @@ export default function WatchInfo() {
 
             let apiUrl;
             if (contentType === 'lesson') {
-                apiUrl = `${API_BASE}/api/lesson/${contentId}`;
+                apiUrl = `${API_BASE}/lesson/${contentId}`;
             } else if (contentType === 'post') {
-                apiUrl = `${API_BASE}/api/posts/${contentId}`;
+                apiUrl = `${API_BASE}/posts/${contentId}`;
             } else {
                 throw new Error('Invalid content type specified. Must be "lesson" or "post".');
             }
@@ -109,7 +110,7 @@ export default function WatchInfo() {
             }
 
             let data = await res.json();
-
+            console.log(data);
             if (data.user && typeof data.user === 'string') {
                 const userDetails = await fetchUserDetails(data.user, token);
                 if (userDetails) {
@@ -146,7 +147,7 @@ export default function WatchInfo() {
                 return;
             }
 
-            const res = await fetch(`${API_BASE}/api/comments/content/${contentId}`, {
+            const res = await fetch(`${API_BASE}/comments/content/${contentId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -171,7 +172,7 @@ export default function WatchInfo() {
             const token = await AsyncStorage.getItem('userToken');
             if (!token) return;
             
-            const res = await fetch(`${API_BASE}/api/auth/me`, {
+            const res = await fetch(`${API_BASE}/auth/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -201,9 +202,9 @@ export default function WatchInfo() {
 
             let likeApiUrl;
             if (contentType === 'lesson') {
-                likeApiUrl = `${API_BASE}/api/lesson/${contentId}/like`;
+                likeApiUrl = `${API_BASE}/lesson/${contentId}/like`;
             } else if (contentType === 'post') {
-                likeApiUrl = `${API_BASE}/api/posts/${contentId}/like`;
+                likeApiUrl = `${API_BASE}/posts/${contentId}/like`;
             } else {
                 throw new Error('Invalid content type for liking.');
             }
@@ -274,9 +275,9 @@ export default function WatchInfo() {
 
             let dislikeApiUrl;
             if (contentType === 'lesson') {
-                dislikeApiUrl = `${API_BASE}/api/lesson/${contentId}/dislike`;
+                dislikeApiUrl = `${API_BASE}/lesson/${contentId}/dislike`;
             } else if (contentType === 'post') {
-                dislikeApiUrl = `${API_BASE}/api/posts/${contentId}/dislike`;
+                dislikeApiUrl = `${API_BASE}/posts/${contentId}/dislike`;
             } else {
                 throw new Error('Invalid content type for disliking.');
             }
@@ -353,7 +354,7 @@ export default function WatchInfo() {
                 return;
             }
 
-            const res = await fetch(`${API_BASE}/api/comments/content/${contentId}`, {
+            const res = await fetch(`${API_BASE}/comments/content/${contentId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -402,7 +403,7 @@ export default function WatchInfo() {
                                 return;
                             }
 
-                            const res = await fetch(`${API_BASE}/api/comments/${commentId}`, {
+                            const res = await fetch(`${API_BASE}/comments/${commentId}`, {
                                 method: 'DELETE',
                                 headers: { Authorization: `Bearer ${token}` }
                             });

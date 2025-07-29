@@ -19,11 +19,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 import { AntDesign } from '@expo/vector-icons'; // For plus/delete icons
-
+import { API_BASE_URL } from "../components/NavbarAndTheme";
 // --- Configuration ---
-const API_BASE = 'http://192.168.41.31:6000'; // **IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND IP ADDRESS**
 const { width } = Dimensions.get('window');
-
+const API_BASE = API_BASE_URL;
 const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'Biology', 'Social', 'History', 'Music', 'Art'];
 const GRADES = Array.from({ length: 6 }, (_, i) => String(i + 7)); // Grades 7 to 12
 const QUIZ_LEVELS = ['Easy', 'Medium', 'Hard']; // Quiz difficulty levels
@@ -48,7 +47,7 @@ export default function CreateQuiz() {
   const fileUrlFrom = useCallback((relPath) => {
     if (!relPath) return null;
     const encoded = encodeURIComponent(relPath.replace(/\\/g, '/'));
-    return `${API_BASE}/api/file?path=${encoded}`;
+    return `${API_BASE}/file?path=${encoded}`;
   }, []);
 
   // --- Image Picking Functions ---
@@ -275,7 +274,7 @@ export default function CreateQuiz() {
     });
 
     try {
-      const response = await fetch(`${API_BASE}/api/quizzes`, { // Your POST endpoint
+      const response = await fetch(`${API_BASE}/quizzes`, { // Your POST endpoint
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

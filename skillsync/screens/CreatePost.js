@@ -8,7 +8,8 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Navbar } from '../components/NavbarAndTheme.js';
-const API_BASE = 'http://192.168.41.31:6000'; // Ensure this matches your backend API URL
+import { API_BASE_URL } from "../components/NavbarAndTheme";
+const API_BASE = API_BASE_URL;
 
 const subjects = [
   'Math',
@@ -40,7 +41,7 @@ const NavBar = ({ userName, avatar, API_BASE }) => (
       <Image
         source={
           avatar
-            ? { uri: `${API_BASE}/api/file?path=${encodeURIComponent(avatar.replace(/\\/g, '/'))}` }
+            ? { uri: `${API_BASE}/file?path=${encodeURIComponent(avatar.replace(/\\/g, '/'))}` }
             : require('../assets/Sign-in.png') // Default avatar if not set
         }
         style={navStyles.avatar}
@@ -75,7 +76,7 @@ const CreatePost = ({ navigation }) => {
         const token = await AsyncStorage.getItem('userToken');
         if (!token) return; // If no token, user is not authenticated
 
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Failed to fetch user data');
@@ -187,7 +188,7 @@ const CreatePost = ({ navigation }) => {
         });
       }
 
-      const res = await fetch(`${API_BASE}/api/posts`, {
+      const res = await fetch(`${API_BASE}/posts`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

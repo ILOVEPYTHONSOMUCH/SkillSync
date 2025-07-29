@@ -18,7 +18,8 @@ import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- Configuration ---
-const API_BASE = 'http://192.168.41.31:6000'; // **IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND IP ADDRESS**
+import { API_BASE_URL } from "../components/NavbarAndTheme";
+const API_BASE = API_BASE_URL;
 const { width } = Dimensions.get('window');
 
 // Colors for options buttons to match the image
@@ -45,7 +46,7 @@ export default function DoQuiz() {
   const fileUrlFrom = useCallback((relPath) => {
     if (!relPath) return null;
     const encoded = encodeURIComponent(relPath.replace(/\\/g, '/'));
-    return `${API_BASE}/api/file?path=${encoded}`;
+    return `${API_BASE}/file?path=${encoded}`;
   }, []);
 
   // --- Fetch Quiz Data on Component Mount ---
@@ -61,7 +62,7 @@ export default function DoQuiz() {
           return;
         }
 
-        const response = await fetch(`${API_BASE}/api/quizzes/${quizId}`, {
+        const response = await fetch(`${API_BASE}/quizzes/${quizId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -150,7 +151,7 @@ export default function DoQuiz() {
         return;
       }
 
-      const response = await fetch(`${API_BASE}/api/quizzes/${quizId}/attempt`, {
+      const response = await fetch(`${API_BASE}/quizzes/${quizId}/attempt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

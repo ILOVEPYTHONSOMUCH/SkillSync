@@ -12,8 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const BASE_URL = 'http://192.168.41.31:6000/api/auth';
+import { API_BASE_URL } from "../components/NavbarAndTheme";
+const BASE_URL = API_BASE_URL + '/auth';
 
 export default function LoginScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;

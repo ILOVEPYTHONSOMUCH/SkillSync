@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
-
+import { API_BASE_URL } from "../components/NavbarAndTheme";
 // Assume these images are in your project's assets folder
 const images = {
   logo: require('../assets/SkillSyncLogo.png'),
@@ -26,8 +26,8 @@ const images = {
   profileIcon: require('../assets/Sign-in.png'),
 };
 
-const API_BASE = 'http://192.168.41.31:6000'; // Define API_BASE
 
+const API_BASE = API_BASE_URL;
 // Define subject-specific colors with your new preferences
 const subjectColors = {
   'Math': '#6a8eec',      // Softer, slightly muted blue
@@ -71,7 +71,7 @@ export default function QuizScreen() {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -89,7 +89,7 @@ export default function QuizScreen() {
   const fileUrlFrom = (relPath) => {
     if (!relPath) return null;
     const encoded = encodeURIComponent(relPath.replace(/\\/g, '/'));
-    return `${API_BASE}/api/file?path=${encoded}`;
+    return `${API_BASE}/file?path=${encoded}`;
   };
 
   const fetchQuizzes = useCallback(async () => {
@@ -110,7 +110,7 @@ export default function QuizScreen() {
       }
 
       // Add keyword and grade to the URL for filtering
-      let url = `${API_BASE}/api/search/quizzes?grade=${userGrade}`;
+      let url = `${API_BASE}/search/quizzes?grade=${userGrade}`;
       if (searchQuery) {
         url += `&keyword=${encodeURIComponent(searchQuery)}`;
       }

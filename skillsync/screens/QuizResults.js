@@ -14,7 +14,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import moment from 'moment';
-
+import { API_BASE_URL } from "../components/NavbarAndTheme";
 // --- Local Image Imports ---
 const images = {
   logo: require('../assets/SkillSyncLogo.png'),
@@ -27,7 +27,7 @@ const images = {
   profileIcon: require('../assets/Sign-in.png')
 };
 
-const API_BASE = 'http://192.168.41.31:6000'; // Define your API base URL
+const API_BASE = API_BASE_URL;
 
 // --- UPDATED Subject-specific Colors (for card headers) ---
 const subjectColors = {
@@ -72,7 +72,7 @@ export default function QuizResults() {
   const fileUrlFrom = (relPath) => {
     if (!relPath) return null;
     const encoded = encodeURIComponent(relPath.replace(/\\/g, '/'));
-    return `${API_BASE}/api/file?path=${encoded}`;
+    return `${API_BASE}/file?path=${encoded}`;
   };
 
   const fetchUserProfile = useCallback(async () => {
@@ -84,7 +84,7 @@ export default function QuizResults() {
         setLoadingProfile(false);
         return;
       }
-      const response = await fetch(`${API_BASE}/api/auth/me`, {
+      const response = await fetch(`${API_BASE}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
@@ -115,7 +115,7 @@ export default function QuizResults() {
         return;
       }
 
-      const response = await fetch(`${API_BASE}/api/quizzes/attempts/me`, {
+      const response = await fetch(`${API_BASE}/quizzes/attempts/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

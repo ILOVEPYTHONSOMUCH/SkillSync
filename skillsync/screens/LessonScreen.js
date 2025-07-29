@@ -19,9 +19,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { AntDesign, Feather } from '@expo/vector-icons';
+import { API_BASE_URL } from "../components/NavbarAndTheme";
 
-const API_BASE = 'http://192.168.41.31:6000';
-
+const API_BASE = API_BASE_URL;
 const { width, height } = Dimensions.get('window');
 
 const subjects = [
@@ -75,7 +75,7 @@ export default function LessonScreen() {
       }
 
       // Fetch user info to get grade
-      const userRes = await fetch(`${API_BASE}/api/auth/me`, {
+      const userRes = await fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -108,7 +108,7 @@ export default function LessonScreen() {
     if (fetchedGrade != null) {
       try {
         const lessonsRes = await fetch(
-          `${API_BASE}/api/search/lessons?grade=${fetchedGrade}`,
+          `${API_BASE}/search/lessons?grade=${fetchedGrade}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await lessonsRes.json();
@@ -189,7 +189,7 @@ export default function LessonScreen() {
     }
 
     try {
-      const endpoint = `${API_BASE}/api/lesson/${lessonId}/${actionType}`;
+      const endpoint = `${API_BASE}/lesson/${lessonId}/${actionType}`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -272,7 +272,7 @@ export default function LessonScreen() {
 
   const getFileUrl = (path) =>
     path
-      ? `${API_BASE}/api/file?path=${encodeURIComponent(path.replace(/\\/g, '/'))}`
+      ? `${API_BASE}/file?path=${encodeURIComponent(path.replace(/\\/g, '/'))}`
       : null;
 
   const handleLessonPress = (lesson) => {

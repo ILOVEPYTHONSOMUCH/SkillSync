@@ -9,8 +9,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useNavigation, useIsFocused } from '@react-navigation/native'; // Import useIsFocused
+import { API_BASE_URL } from "../components/NavbarAndTheme";
 
-const API_BASE = 'http://192.168.41.31:6000'; // Ensure this matches your backend API base URL
+const API_BASE = API_BASE_URL;
 const { width } = Dimensions.get('window');
 const SUBJECTS = [
   'Math',
@@ -76,7 +77,7 @@ export default function UserInfoScreen({ route }) {
   const fileUrlFrom = useCallback((relPath) => {
     if (!relPath) return null;
     const p = relPath.replace(/\\/g, '/');
-    return `${API_BASE}/api/file?path=${encodeURIComponent(p)}`;
+    return `${API_BASE}/file?path=${encodeURIComponent(p)}`;
   }, []);
 
   const fetchUserActivityData = useCallback(async () => {
@@ -93,7 +94,7 @@ export default function UserInfoScreen({ route }) {
       const headers = { Authorization: `Bearer ${token}` };
 
       // Fetch User Info (main profile data, including all counts)
-      const userRes = await fetch(`${API_BASE}/api/users/${userId}`, { headers });
+      const userRes = await fetch(`${API_BASE}/users/${userId}`, { headers });
       if (!userRes.ok) {
           const errorData = await userRes.json().catch(() => ({ message: 'Failed to parse error' }));
           throw new Error(errorData.message || 'Failed to load user information.');
