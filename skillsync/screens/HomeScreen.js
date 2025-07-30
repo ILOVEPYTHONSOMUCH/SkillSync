@@ -13,7 +13,9 @@ import {
     Platform,
     Modal,
     FlatList
+//
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +35,8 @@ export default function PostScreen() {
     const [selectedTeachSubjects, setSelectedTeachSubjects] = useState([]);
     const [selectedLearnSubjects, setSelectedLearnSubjects] = useState([]);
     const [allSubjects, setAllSubjects] = useState([]);
+    const [gradeFilter, setGradeFilter] = useState(null);
+    const [tempGradeFilter, setTempGradeFilter] = useState(null);
 
     useEffect(() => {
         (async () => {
@@ -68,9 +72,17 @@ export default function PostScreen() {
         if (user.grade == null) return;
         try {
             const token = await AsyncStorage.getItem('userToken');
-            const res = await fetch(`${API_BASE}/search/posts?type=posts&grade=${user.grade}`, {
+            
+            // Build query parameters
+            const params = new URLSearchParams();
+            if (gradeFilter !== null) {
+                params.append('grade', gradeFilter);
+            }
+            
+            const res = await fetch(`${API_BASE}/search/posts?type=posts&${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
+            
             if (!res.ok) {
                 if (res.status === 404) {
                     setPosts([]);
@@ -130,13 +142,23 @@ export default function PostScreen() {
             Alert.alert('Error', 'Cannot load posts');
             setPosts([]);
         }
-    }, [user.grade, user._id]);
+    }, [user.grade, user._id, gradeFilter]);
 
     useFocusEffect(
         useCallback(() => {
             loadPosts();
         }, [loadPosts])
     );
+
+    const applyGradeFilter = () => {
+        setGradeFilter(tempGradeFilter);
+        setFilterModalVisible(false);
+    };
+
+    const clearGradeFilter = () => {
+        setTempGradeFilter(null);
+        setGradeFilter(null);
+    };
 
     const handleLikeDislike = useCallback(async (postId, action) => {
         try {
@@ -300,12 +322,15 @@ export default function PostScreen() {
                 <View style={styles.filterRow}>
                     <TouchableOpacity 
                         style={styles.filterButton}
-                        onPress={() => setFilterModalVisible(true)}
+                        onPress={() => {
+                            setTempGradeFilter(gradeFilter);
+                            setFilterModalVisible(true);
+                        }}
                     >
                         <Feather name="filter" size={20} color="#000066" />
                         <Text style={styles.filterButtonText}>
-                            Filter {selectedTeachSubjects.length + selectedLearnSubjects.length > 0 ? 
-                                `(${selectedTeachSubjects.length + selectedLearnSubjects.length})` : ''}
+                            Filter {(selectedTeachSubjects.length + selectedLearnSubjects.length > 0 || gradeFilter !== null) ? 
+                                `(${selectedTeachSubjects.length + selectedLearnSubjects.length + (gradeFilter !== null ? 1 : 0)})` : ''}
                         </Text>
                     </TouchableOpacity>
                     
@@ -328,12 +353,42 @@ export default function PostScreen() {
                     <View style={styles.modalContainer}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Filter Subjects</Text>
+                                <Text style={styles.modalTitle}>Filters</Text>
                                 <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
                                     <Feather name="x" size={24} color="#000" />
                                 </TouchableOpacity>
                             </View>
-                            
+
+                            {/* Grade Filter Section */}
+                            <View style={styles.gradeFilterContainer}>
+                                <View style={styles.gradeFilterHeader}>
+                                    <Text style={styles.gradeFilterTitle}>Filter by Grade</Text>
+                                    <Text style={styles.gradeValue}>
+                                        {tempGradeFilter !== null ? `Grade ${tempGradeFilter}` : 'All Grades'}
+                                    </Text>
+                                </View>
+                                
+                                <View style={styles.sliderContainer}>
+                                    <Slider
+                                        minimumValue={1}
+                                        maximumValue={12}
+                                        step={1}
+                                        value={tempGradeFilter || 1}
+                                        onValueChange={setTempGradeFilter}
+                                        minimumTrackTintColor="#000066"
+                                        maximumTrackTintColor="#d3d3d3"
+                                        thumbTintColor="#000066"
+                                    />
+                                </View>
+                                
+                                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                    <Text style={{color: '#777'}}>Grade 1</Text>
+                                    <Text style={{color: '#777'}}>Grade 12</Text>
+                                </View>
+                            </View>
+
+                            {/* Subject Filter Section */}
+                            <Text style={[styles.modalTitle, {marginBottom: 10}]}>Filter by Subject</Text>
                             <FlatList
                                 data={allSubjects}
                                 renderItem={renderSubjectItem}
@@ -347,6 +402,7 @@ export default function PostScreen() {
                                     onPress={() => {
                                         setSelectedTeachSubjects([]);
                                         setSelectedLearnSubjects([]);
+                                        clearGradeFilter();
                                     }}
                                 >
                                     <Text style={styles.clearButtonText}>Clear All</Text>
@@ -354,7 +410,7 @@ export default function PostScreen() {
                                 
                                 <TouchableOpacity 
                                     style={styles.applyButton}
-                                    onPress={() => setFilterModalVisible(false)}
+                                    onPress={applyGradeFilter}
                                 >
                                     <Text style={styles.applyButtonText}>Apply Filters</Text>
                                 </TouchableOpacity>
@@ -367,7 +423,7 @@ export default function PostScreen() {
                     {filtered.length === 0 ? (
                         <View style={styles.noPostsContainer}>
                             <Text style={styles.noPostsText}>
-                                {search || selectedTeachSubjects.length > 0 || selectedLearnSubjects.length > 0 
+                                {search || selectedTeachSubjects.length > 0 || selectedLearnSubjects.length > 0 || gradeFilter !== null
                                     ? "No posts match your filters" 
                                     : "It looks like there are no posts here yet.\nBe the first to create one!"}
                             </Text>
@@ -419,7 +475,13 @@ export default function PostScreen() {
                                         </Text>
                                     </View>
                                 )}
-
+                                 <View style={styles.subjectRow}>
+                                        <Feather name="user" size={16} color="#076affff" style={styles.subjectIcon} />
+                                        <Text style={styles.subjectText}>
+                                            <Text style={styles.subjectLabel}>Grade : </Text>
+                                            {post.grade}
+                                        </Text>
+                                    </View>
                                 {post.image && (
                                     <Image
                                         source={{ uri: fileUrlFrom(post.image) }}
@@ -777,5 +839,27 @@ const styles = StyleSheet.create({
     activeDislikeText: {
         color: 'red',
         fontWeight: 'bold',
-    }
+    },
+    // New styles for grade filter
+    gradeFilterContainer: {
+        marginBottom: 20,
+    },
+    gradeFilterHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    gradeFilterTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    gradeValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#000066',
+    },
+    sliderContainer: {
+        paddingHorizontal: 10,
+    },
 });

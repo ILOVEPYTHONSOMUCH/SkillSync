@@ -28,7 +28,21 @@ export const Colors = {
     borderColor: '#ccc', // For navBar borderTopColor
     navTextBlue: '#000d63', // For navText
 };
-export const API_BASE_URL = "http://192.168.41.31:6000/api";
+
+export const subjectColors = {
+    'Math': '#6a8eec',      // Softer, slightly muted blue
+    'Physics': '#d9534f',   // Muted, slightly desaturated red
+    'Chemistry': '#f0ad4e', // Muted orange-yellow (instead of pure yellow for better contrast)
+    'Biology': '#5cb85c',   // A standard, slightly muted green
+    'Social': '#f8c057',    // Softer, sunnier orange-yellow
+    'History': '#e7a6b8',   // Dusty rose/pink
+    'Music': '#34495e',     // Very dark slate blue (softer than pure black)
+    'Art': '#9b59b6',       // Muted purple
+    'English': '#8d6e63',   // Earthy brown
+    'Default': '#95a5a6',   // Muted grey (fits better with light backgrounds)
+  }
+
+export const API_BASE_URL = "http://184.0.1.55:6000/api";
 // --- Navbar Component ---
 export function Navbar() {
     const navigation = useNavigation();

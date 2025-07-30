@@ -8,14 +8,17 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  Platform,
-  ActivityIndicator, // Import ActivityIndicator for loading state
-  Alert,             // Import Alert for error messages
+  ActivityIndicator,
+  Alert,
+  Modal,
+  FlatList,
+  Dimensions
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
-import { API_BASE_URL } from "../components/NavbarAndTheme";
-// Assume these images are in your project's assets folder
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL, Navbar } from "../components/NavbarAndTheme";
+import { AntDesign, Feather } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 const images = {
   logo: require('../assets/SkillSyncLogo.png'),
   homeIcon: require('../assets/home.png'),
@@ -26,44 +29,49 @@ const images = {
   profileIcon: require('../assets/Sign-in.png'),
 };
 
-
 const API_BASE = API_BASE_URL;
-// Define subject-specific colors with your new preferences
+const { width, height } = Dimensions.get("window");
+// Define subject-specific colors
 const subjectColors = {
-  'Math': '#6a8eec',      // Softer, slightly muted blue
-  'Physics': '#d9534f',   // Muted, slightly desaturated red
-  'Chemistry': '#f0ad4e', // Muted orange-yellow (instead of pure yellow for better contrast)
-  'Biology': '#5cb85c',   // A standard, slightly muted green
-  'Social': '#f8c057',    // Softer, sunnier orange-yellow
-  'History': '#e7a6b8',   // Dusty rose/pink
-  'Music': '#34495e',     // Very dark slate blue (softer than pure black)
-  'Art': '#9b59b6',       // Muted purple
-  'English': '#8d6e63',   // Earthy brown
-  'Default': '#95a5a6',   // Muted grey (fits better with light backgrounds)
+  'Math': '#6a8eec',
+  'Physics': '#d9534f',
+  'Chemistry': '#f0ad4e',
+  'Biology': '#5cb85c',
+  'Social': '#f8c057',
+  'History': '#e7a6b8',
+  'Music': '#34495e',
+  'Art': '#9b59b6',
+  'English': '#8d6e63',
+  'Default': '#95a5a6',
 };
 
-// Define a new color palette for overall app theme
+// All available subjects for filtering
+const allSubjects = Object.keys(subjectColors).filter(key => key !== 'Default');
+
 const appColors = {
-  primary: '#7ED321',        // Slate Grey (neutral primary for general buttons)
-  secondary: '#795548',      // Brown (for less critical actions like My Quiz Result)
-  background: '#F5F5F5',     // Lighter grey for overall screen background
-  cardBackground: '#FFFFFF', // White for cards
-  textPrimary: '#212121',    // Dark grey for main text
-  textSecondary: '#757575',  // Medium grey for secondary text
-  accent: '#FF9800',         // Deep Orange for highlights
-  headerBackground: '#004aad', // Indigo Blue for header (Note: This will be overridden by '#000c52' for headerDummy)
-  navBarBackground: '#FFFFFF', // White for nav bar
-  navTextActive: '#3F51B5', // Indigo Blue for active nav text
+  primary: '#7ED321',
+  secondary: '#795548',
+  background: '#F5F5F5',
+  cardBackground: '#FFFFFF',
+  textPrimary: '#212121',
+  textSecondary: '#757575',
+  accent: '#FF9800',
+  headerBackground: '#004aad',
+  navBarBackground: '#FFFFFF',
+  navTextActive: '#3F51B5',
 };
-
 
 export default function QuizScreen() {
   const navigation = useNavigation();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(''); // State for search input
-  const [userGrade, setUserGrade] = useState(null); // State to store user's grade
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userGrade, setUserGrade] = useState(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [gradeFilter, setGradeFilter] = useState(null);
+  const [tempGradeFilter, setTempGradeFilter] = useState(null);
 
   // Fetch user's grade on component mount
   useEffect(() => {
@@ -76,7 +84,9 @@ export default function QuizScreen() {
         });
         if (res.ok) {
           const me = await res.json();
-          setUserGrade(me.grade); // Assuming 'grade' field exists in user data
+          setUserGrade(me.grade);
+          setGradeFilter(me.grade); // Initialize grade filter with user's grade
+          setTempGradeFilter(me.grade);
         }
       } catch (e) {
         console.error("Failed to fetch user grade:", e);
@@ -94,8 +104,7 @@ export default function QuizScreen() {
 
   const fetchQuizzes = useCallback(async () => {
     if (userGrade === null) {
-      // Don't fetch if user grade isn't loaded yet
-      setLoading(true); // Keep loading state true until grade is available or error
+      setLoading(true);
       return;
     }
 
@@ -109,13 +118,19 @@ export default function QuizScreen() {
         return;
       }
 
-      // Add keyword and grade to the URL for filtering
-      let url = `${API_BASE}/search/quizzes?grade=${userGrade}`;
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (gradeFilter !== null) {
+        params.append('grade', gradeFilter);
+      }
       if (searchQuery) {
-        url += `&keyword=${encodeURIComponent(searchQuery)}`;
+        params.append('keyword', searchQuery);
+      }
+      if (selectedSubjects.length > 0) {
+        params.append('subjects', selectedSubjects.join(','));
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(`${API_BASE}/search/quizzes?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -123,7 +138,6 @@ export default function QuizScreen() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to fetch quizzes.' }));
-        // If the error is due to no quizzes found (e.g., 404 from specific API setup), treat as empty
         if (response.status === 404) {
           setQuizzes([]);
           return;
@@ -136,16 +150,56 @@ export default function QuizScreen() {
     } catch (err) {
       console.error("Error fetching quizzes:", err);
       setError(err.message || "Could not load quizzes.");
-      setQuizzes([]); // Clear quizzes on error
+      setQuizzes([]);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, userGrade]); // Depend on searchQuery AND userGrade
+  }, [searchQuery, userGrade, gradeFilter, selectedSubjects]);
 
   useFocusEffect(
     useCallback(() => {
       fetchQuizzes();
     }, [fetchQuizzes])
+  );
+
+  const applyGradeFilter = () => {
+    setGradeFilter(tempGradeFilter);
+    setFilterModalVisible(false);
+  };
+
+  const clearGradeFilter = () => {
+    setTempGradeFilter(userGrade);
+    setGradeFilter(userGrade);
+  };
+
+  const toggleSubject = (subject) => {
+    setSelectedSubjects(prev =>
+      prev.includes(subject)
+        ? prev.filter(s => s !== subject)
+        : [...prev, subject]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSelectedSubjects([]);
+    clearGradeFilter();
+  };
+
+  const renderSubjectItem = ({ item }) => (
+    <TouchableOpacity
+      style={[
+        styles.subjectFilterButton,
+        selectedSubjects.includes(item) && styles.selectedSubject,
+      ]}
+      onPress={() => toggleSubject(item)}
+    >
+      <Text style={[
+        styles.subjectFilterText,
+        selectedSubjects.includes(item) && styles.selectedSubjectText
+      ]}>
+        {item}
+      </Text>
+    </TouchableOpacity>
   );
 
   return (
@@ -177,12 +231,99 @@ export default function QuizScreen() {
               />
               <Text style={styles.searchIcon}>🔍</Text>
             </View>
+            <TouchableOpacity 
+              style={styles.filterButton}
+              onPress={() => {
+                setTempGradeFilter(gradeFilter);
+                setFilterModalVisible(true);
+              }}
+            >
+              <Feather name="filter" size={20} color="#000066" />
+              <Text style={styles.filterButtonText}>
+                Filter {(selectedSubjects.length > 0 || gradeFilter !== userGrade) ? 
+                  `(${selectedSubjects.length + (gradeFilter !== userGrade ? 1 : 0)})` : ''}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.myResultBtn}>
               <Text style={styles.myResultBtnText} onPress={() => navigation.navigate('QuizResults')}>My Quiz Result</Text>
             </TouchableOpacity>
           </View>
           <Image source={images.logo} style={styles.logo} />
         </View>
+
+        {/* Filter Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={filterModalVisible}
+          onRequestClose={() => setFilterModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Filters</Text>
+                <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                  <Feather name="x" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Grade Filter Section */}
+              <View style={styles.gradeFilterContainer}>
+                <View style={styles.gradeFilterHeader}>
+                  <Text style={styles.gradeFilterTitle}>Filter by Grade</Text>
+                  <Text style={styles.gradeValue}>
+                    {tempGradeFilter !== null ? `Grade ${tempGradeFilter}` : 'All Grades'}
+                  </Text>
+                </View>
+                
+                <View style={styles.sliderContainer}>
+                  <Slider
+                    minimumValue={1}
+                    maximumValue={12}
+                    step={1}
+                    value={tempGradeFilter || 1}
+                    onValueChange={setTempGradeFilter}
+                    minimumTrackTintColor="#000066"
+                    maximumTrackTintColor="#d3d3d3"
+                    thumbTintColor="#000066"
+                  />
+                </View>
+                
+                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                  <Text style={{color: '#777'}}>Grade 1</Text>
+                  <Text style={{color: '#777'}}>Grade 12</Text>
+                </View>
+              </View>
+
+              {/* Subject Filter Section */}
+              <Text style={[styles.modalTitle, {marginBottom: 10}]}>Filter by Subject</Text>
+              <FlatList
+                data={allSubjects}
+                renderItem={renderSubjectItem}
+                keyExtractor={(item) => item}
+                numColumns={2}
+                contentContainerStyle={styles.subjectList}
+                columnWrapperStyle={styles.columnWrapper}
+              />
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={clearAllFilters}
+                >
+                  <Text style={styles.clearButtonText}>Clear All</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.applyButton}
+                  onPress={applyGradeFilter}
+                >
+                  <Text style={styles.applyButtonText}>Apply Filters</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Main Content Area - Scrollable */}
         <ScrollView contentContainerStyle={styles.quizContainer}>
@@ -194,7 +335,10 @@ export default function QuizScreen() {
             <View style={styles.noQuizzesContainer}>
               <Text style={styles.noQuizzesText}>
                 No quizzes found
-                {searchQuery ? ' matching your search criteria' : ` for your grade (Grade ${userGrade || 'N/A'})`}.
+                {searchQuery ? ' matching your search criteria' : 
+                  (gradeFilter !== userGrade || selectedSubjects.length > 0) ? 
+                  ' matching your filters' : 
+                  ` for your grade (Grade ${userGrade || 'N/A'})`}.
                 {"\n"}Be the first to create one!
               </Text>
               <TouchableOpacity
@@ -228,14 +372,13 @@ export default function QuizScreen() {
                 <TouchableOpacity
                   style={[
                     styles.startBtn,
-                    { backgroundColor: subjectColors[quiz.subject] || subjectColors.Default } // Dynamic button color
+                    { backgroundColor: subjectColors[quiz.subject] || subjectColors.Default }
                   ]}
                   onPress={() => navigation.navigate('DoQuiz', { quizId: quiz.quizId })}
                 >
-                  {/* For black button (Music), change text to white for visibility */}
                   <Text style={[
                     styles.startBtnText,
-                    quiz.subject === 'Music' && { color: '#FFFFFF' } // White text for 'Music' subject button
+                    quiz.subject === 'Music' && { color: '#FFFFFF' }
                   ]}>
                     Start the Quiz
                   </Text>
@@ -244,34 +387,7 @@ export default function QuizScreen() {
             ))
           )}
         </ScrollView>
-
-        {/* Bottom Navigation Bar */}
-        <View style={styles.navBar}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
-            <Image source={images.homeIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>HOME</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Quiz')}>
-            <Image source={images.quizIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>QUIZ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lesson')}>
-            <Image source={images.lessonIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>LESSON</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Post')}>
-            <Image source={images.postIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>POST</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('ChatFeed')}>
-            <Image source={images.chatfeedIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>CHAT</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-            <Image source={images.profileIcon} style={styles.navIcon} />
-            <Text style={styles.navText}>PROFILE</Text>
-          </TouchableOpacity>
-        </View>
+        <Navbar></Navbar>
       </View>
     </SafeAreaView>
   );
@@ -288,7 +404,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   headerDummy: {
-    backgroundColor: '#000066', // Changed to the requested color
+    backgroundColor: '#000066',
     height: 50,
   },
   topControls: {
@@ -322,7 +438,7 @@ const styles = StyleSheet.create({
     color: appColors.textPrimary,
   },
   createQuizButton: {
-    backgroundColor: appColors.primary, // Using general primary for this button
+    backgroundColor: appColors.primary,
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -335,7 +451,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   createQuizButtonText: {
-    color: appColors.cardBackground, // White text
+    color: appColors.cardBackground,
     fontSize: 20,
     fontWeight: 'bold',
     lineHeight: 22,
@@ -358,14 +474,28 @@ const styles = StyleSheet.create({
     color: appColors.textPrimary,
     fontSize: 16,
   },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f1f1',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    marginRight: 10,
+  },
+  filterButtonText: {
+    marginLeft: 5,
+    color: '#000066',
+    fontWeight: '500',
+  },
   myResultBtn: {
-    backgroundColor: appColors.secondary, // Using general secondary for this button
+    backgroundColor: appColors.secondary,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
   },
   myResultBtnText: {
-    color: appColors.cardBackground, // White text
+    color: appColors.cardBackground,
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -415,14 +545,13 @@ const styles = StyleSheet.create({
   },
   startBtn: {
     marginTop: 10,
-    // Background color is now dynamic, removed fixed color here
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
   startBtnText: {
-    color: appColors.cardBackground, // Default to white text for contrast on colored buttons
+    color: appColors.cardBackground,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -450,46 +579,109 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   createQuizButtonLarge: {
-    backgroundColor: appColors.primary, // Using general primary for this button
+    backgroundColor: appColors.primary,
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
   },
   createQuizButtonTextLarge: {
-    color: appColors.cardBackground, // White text
+    color: appColors.cardBackground,
     fontSize: 16,
     fontWeight: 'bold',
   },
-
-  // Navigation Bar Styles
-  navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: appColors.navBarBackground,
-    height: 60,
-    borderTopColor: '#ccc',
-    borderTopWidth: 1,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0,
-  },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  // Modal styles
+  modalContainer: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  navIcon: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-    resizeMode: 'contain',
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: height * 0.8,
   },
-  navText: {
-    fontSize: 11,
-    color: appColors.navTextActive,
-    fontWeight: '500',
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  gradeFilterContainer: {
+    marginBottom: 20,
+  },
+  gradeFilterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  gradeFilterTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  gradeValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000066',
+  },
+  sliderContainer: {
+    paddingHorizontal: 10,
+  },
+  subjectList: {
+    paddingBottom: 20,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+  },
+  subjectFilterButton: {
+    width: '48%',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f1f1f1',
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  selectedSubject: {
+    backgroundColor: '#000066',
+  },
+  subjectFilterText: {
+    fontSize: 14,
+  },
+  selectedSubjectText: {
+    color: 'white',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  clearButton: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#f1f1f1',
+    borderRadius: 10,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  applyButton: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#000066',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

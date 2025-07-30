@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 import { API_BASE_URL } from "../components/NavbarAndTheme";
+import Slider from '@react-native-community/slider';
 // IMPORTANT: In a real application, you should move this API_BASE URL
 // into an environment variable (e.g., using 'react-native-config' or 'dotenv')
 // rather than hardcoding it directly in your code.
@@ -43,7 +44,7 @@ export default function LessonUploader({ navigation }) { // Ensure 'navigation' 
 
   // Quiz state management: Now handles multiple quiz IDs as a string
   const [quizIdsInput, setQuizIdsInput] = useState(''); // State for the string of quiz IDs (e.g., "QZ001, QZ002")
-
+  const [grade, setGrade] = useState(''); // State for the string of quiz IDs (e.g., "QZ001, QZ002")
   // Effect hook to load user information when the component mounts.
   useEffect(() => {
     (async () => {
@@ -110,7 +111,7 @@ export default function LessonUploader({ navigation }) { // Ensure 'navigation' 
       Alert.alert('Missing description', 'Please enter a description.');
       return;
     }
-    if (!user?.grade || isNaN(user.grade)) {
+    if (isNaN(grade)) {
       Alert.alert('Missing grade', 'User grade is required to upload a lesson.');
       return;
     }
@@ -139,7 +140,7 @@ export default function LessonUploader({ navigation }) { // Ensure 'navigation' 
       formData.append('title', title);
       formData.append('description', description);
       formData.append('subject', subject); // Use the selected subject from the Picker
-      formData.append('grade', user.grade.toString());
+      formData.append('grade', grade);
 
       // Parse and append multiple quiz IDs
       // This splits the input string by comma or space, filters out empty strings,
@@ -147,10 +148,9 @@ export default function LessonUploader({ navigation }) { // Ensure 'navigation' 
       const parsedQuizIds = quizIdsInput
         .split(/[, ]+/) // Split by comma or one or more spaces
         .filter(id => id.trim() !== ''); // Filter out empty strings
-
       if (parsedQuizIds.length > 0) {
         // Backend should expect 'quiz_ids' as a JSON string array
-        formData.append('quiz_ids', JSON.stringify(parsedQuizIds));
+        formData.append('relatedQuizzes', JSON.stringify(parsedQuizIds));
       }
 
       const res = await fetch(`${API_BASE}/lesson/`, {
@@ -275,6 +275,21 @@ export default function LessonUploader({ navigation }) { // Ensure 'navigation' 
             multiline // Allow multiple lines for better input experience
           />
         </View>
+         <Text style={{fontWeight: 'bold',
+    fontSize: 16,
+    color: '#00125a',
+    marginRight: 8, marginVertical: 7}}>Grade: {grade}</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={7}
+                  maximumValue={12}
+                  step={1}
+                  value={grade}
+                  onValueChange={setGrade}
+                  minimumTrackTintColor="#1565c0" // Matches original tag selected color
+                  maximumTrackTintColor="#ccc"
+                  thumbTintColor="#1565c0"
+                />
       </ScrollView>
 
       {/* Navigation Bar Footer */}

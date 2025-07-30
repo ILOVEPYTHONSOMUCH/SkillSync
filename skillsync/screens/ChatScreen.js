@@ -306,9 +306,15 @@ export default function ChatScreen() {
       setIsSendingFile(false);
       return;
     }
-    const filedata = result.assets[0];
+    const filedata = result.assets[0]
+    const isValid = filedata.name?.match(/\.(jpg|jpeg|png|gif|pdf)$/i)
+    console.log(isValid);
+    if (!isValid){
+     return Alert.alert('Error', 'Support pdf or image files only !');
+    }
     // Create temporary message
-    const isImage = result.name?.match(/\.(jpg|jpeg|png|gif)$/i);
+    const isImage = filedata.name?.match(/\.(jpg|jpeg|png|gif)$/i);
+    console.log(isImage);
     const tempMessage = {
       id: `temp-file-${Date.now()}`,
       sender: "me",
@@ -389,9 +395,10 @@ export default function ChatScreen() {
 
 const handleDownloadFile = async (url) => {
   try {
+    console.log(url);
     // 1. Extract filename
     const filename = url.split('/').pop().replace(/\?.*$/, '') || 'file.pdf';
-    
+    console.log(filename);
     // 2. Download to cache
     const localUri = `${FileSystem.cacheDirectory}${filename}`;
     const { uri } = await FileSystem.downloadAsync(url, localUri);
@@ -614,7 +621,7 @@ const handleDownloadFile = async (url) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate('ChatFeed')}
           style={styles.backButton}
         >
           <AntDesign name="arrowleft" size={24} color={Colors.primaryText} />
@@ -708,6 +715,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.backgroundLight,
+    marginVertical: 15
   },
   header: {
     flexDirection: "row",

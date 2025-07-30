@@ -19,7 +19,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { AntDesign, Feather } from '@expo/vector-icons';
-import { API_BASE_URL } from "../components/NavbarAndTheme";
+import Slider from '@react-native-community/slider';
+import { API_BASE_URL , subjectColors} from "../components/NavbarAndTheme";
 
 const API_BASE = API_BASE_URL;
 const { width, height } = Dimensions.get('window');
@@ -54,6 +55,8 @@ export default function LessonScreen() {
   const [lessonEngagement, setLessonEngagement] = useState({});
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [gradeFilter, setGradeFilter] = useState(null);
+  const [tempGradeFilter, setTempGradeFilter] = useState(null);
 
   const navigation = useNavigation();
   const route = useRoute();
@@ -107,8 +110,14 @@ export default function LessonScreen() {
     // Fetch lessons once user grade is known
     if (fetchedGrade != null) {
       try {
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (gradeFilter !== null) {
+          params.append('grade', gradeFilter);
+        }
+
         const lessonsRes = await fetch(
-          `${API_BASE}/search/lessons?grade=${fetchedGrade}`,
+          `${API_BASE}/search/lessons?${params.toString()}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await lessonsRes.json();
@@ -153,7 +162,7 @@ export default function LessonScreen() {
       setLessons([]);
       setLessonEngagement({});
     }
-  }, []);
+  }, [gradeFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -232,6 +241,16 @@ export default function LessonScreen() {
       console.error(`Error during ${actionType} action:`, e);
       Alert.alert('Error', e.message || `Could not ${actionType} lesson. Please try again.`);
     }
+  };
+
+  const applyGradeFilter = () => {
+    setGradeFilter(tempGradeFilter);
+    setFilterModalVisible(false);
+  };
+
+  const clearGradeFilter = () => {
+    setTempGradeFilter(null);
+    setGradeFilter(null);
   };
 
   const filtered = lessons.filter(lesson => {
@@ -363,7 +382,7 @@ export default function LessonScreen() {
       borderWidth: 2,
       borderRadius: 20,
       paddingHorizontal: 15,
-      paddingVertical: 8,
+      paddingVertical: 10,
       fontSize: 16
     },
     filterButton: {
@@ -609,18 +628,6 @@ export default function LessonScreen() {
       color: '#fff',
       fontWeight: 'bold',
     },
-    relatedQuizzesContainer: {
-      marginTop: 10,
-      borderTopWidth: 1,
-      borderTopColor: '#eee',
-      paddingTop: 10,
-    },
-    relatedQuizzesTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 8,
-      color: '#333',
-    },
     quizItem: {
       backgroundColor: '#f8f9fa',
       padding: 10,
@@ -638,10 +645,32 @@ export default function LessonScreen() {
       fontSize: 12,
       color: '#666',
       marginTop: 4,
-    },topBar: { 
-        backgroundColor: '#000066', // Changed to the requested color
-        height: 50
-      },
+    },
+    gradeFilterContainer: {
+      marginBottom: 20,
+    },
+    gradeFilterHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    gradeFilterTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    gradeValue: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#000c52',
+    },
+    sliderContainer: {
+      paddingHorizontal: 10,
+    },
+    topBar: { 
+      backgroundColor: '#000066',
+      height: 50
+    },
   });
 
   return (
@@ -679,7 +708,10 @@ export default function LessonScreen() {
           />
           <TouchableOpacity
             style={styles.filterButton}
-            onPress={() => setFilterModalVisible(true)}
+            onPress={() => {
+              setTempGradeFilter(gradeFilter);
+              setFilterModalVisible(true);
+            }}
           >
             <Feather name="filter" size={20} color="#000c52" />
           </TouchableOpacity>
@@ -695,12 +727,42 @@ export default function LessonScreen() {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Filter by Subject</Text>
+                <Text style={styles.modalTitle}>Filters</Text>
                 <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
                   <Feather name="x" size={24} color="#000" />
                 </TouchableOpacity>
               </View>
 
+              {/* Grade Filter Section */}
+              <View style={styles.gradeFilterContainer}>
+                <View style={styles.gradeFilterHeader}>
+                  <Text style={styles.gradeFilterTitle}>Filter by Grade</Text>
+                  <Text style={styles.gradeValue}>
+                    {tempGradeFilter !== null ? `Grade ${tempGradeFilter}` : 'All Grades'}
+                  </Text>
+                </View>
+                
+                <View style={styles.sliderContainer}>
+                  <Slider
+                    minimumValue={1}
+                    maximumValue={12}
+                    step={1}
+                    value={tempGradeFilter || 1}
+                    onValueChange={setTempGradeFilter}
+                    minimumTrackTintColor="#000c52"
+                    maximumTrackTintColor="#d3d3d3"
+                    thumbTintColor="#000c52"
+                  />
+                </View>
+                
+                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                  <Text style={{color: '#777'}}>Grade 1</Text>
+                  <Text style={{color: '#777'}}>Grade 12</Text>
+                </View>
+              </View>
+
+              {/* Subject Filter Section */}
+              <Text style={[styles.modalTitle, {marginBottom: 10}]}>Filter by Subject</Text>
               <FlatList
                 data={subjects}
                 renderItem={renderSubjectItem}
@@ -711,14 +773,17 @@ export default function LessonScreen() {
               <View style={styles.modalFooter}>
                 <TouchableOpacity
                   style={styles.clearButton}
-                  onPress={() => setSelectedSubjects([])}
+                  onPress={() => {
+                    setSelectedSubjects([]);
+                    clearGradeFilter();
+                  }}
                 >
                   <Text style={styles.clearButtonText}>Clear All</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.applyButton}
-                  onPress={() => setFilterModalVisible(false)}
+                  onPress={applyGradeFilter}
                 >
                   <Text style={styles.applyButtonText}>Apply Filters</Text>
                 </TouchableOpacity>
@@ -733,14 +798,14 @@ export default function LessonScreen() {
             <ActivityIndicator size="large" color="#000c52" />
             <Text style={styles.loadingText}>Loading {loadingUser ? 'user data' : 'lessons'}...</Text>
           </View>
-        ) : filtered.length === 0 && search === '' && selectedSubjects.length === 0 && userGrade != null ? (
+        ) : filtered.length === 0 && search === '' && selectedSubjects.length === 0 && gradeFilter === null && userGrade != null ? (
           <View style={styles.emptyLessonsContainer}>
             <Text style={styles.emptyLessonsText}>No lessons found for your grade.</Text>
             <Text style={styles.emptyLessonsSubText}>
               Try uploading a lesson or adjusting your search.
             </Text>
           </View>
-        ) : filtered.length === 0 && (search !== '' || selectedSubjects.length > 0) ? (
+        ) : filtered.length === 0 && (search !== '' || selectedSubjects.length > 0 || gradeFilter !== null) ? (
           <View style={styles.emptyLessonsContainer}>
             <Text style={styles.emptyLessonsText}>No lessons match your criteria.</Text>
             <Text style={styles.emptyLessonsSubText}>
@@ -766,7 +831,6 @@ export default function LessonScreen() {
                 commentsCount: 0
               };
 
-              const quizzesForLesson = lesson.relatedQuizzes || [];
 
               return (
                 <View key={lesson._id} style={styles.card}>
@@ -818,8 +882,8 @@ export default function LessonScreen() {
                           </Text>
                         )}
                       </View>
-                      <View style={[styles.badge, { backgroundColor: '#28a745' }]}>
-                        <Text style={styles.badgeText}>{lesson.subject}</Text>
+                      <View style={[styles.badge, { backgroundColor: subjectColors[lesson.subject]}]}>
+                        <Text style={styles.badgeText}>{lesson.subject} Grade {lesson.grade}</Text>
                       </View>
                     </View>
                     <Text style={styles.titleText}>{lesson.title}</Text>
@@ -857,22 +921,6 @@ export default function LessonScreen() {
                         <Text style={styles.statText}>{engagement.commentsCount}</Text>
                       </View>
                     </View>
-
-                    {quizzesForLesson.length > 0 && (
-                      <View style={styles.relatedQuizzesContainer}>
-                        <Text style={styles.relatedQuizzesTitle}>Related Quizzes:</Text>
-                        {quizzesForLesson.map(quiz => (
-                          <TouchableOpacity
-                            key={quiz._id}
-                            style={styles.quizItem}
-                            onPress={() => handleQuizPress(quiz._id)}
-                          >
-                            <Text style={styles.quizTitle}>{quiz.title}</Text>
-                            <Text style={styles.quizSubject}>{quiz.subject}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
                   </View>
                 </View>
               );

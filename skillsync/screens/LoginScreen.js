@@ -28,7 +28,7 @@ export default function LoginScreen({ navigation }) {
     ]).start(async () => {
       // validate inputs
       if (!identifier || !password) {
-        return Alert.alert('Error', 'กรุณากรอก Username/Email และ Password');
+        return Alert.alert('Error', 'Please enter Username/Email and Password');
       }
 
       try {

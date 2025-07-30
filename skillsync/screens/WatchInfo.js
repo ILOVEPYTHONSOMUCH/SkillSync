@@ -44,7 +44,6 @@ export default function WatchInfo() {
     const [dislikesCount, setDislikesCount] = useState(0);
     const [userLikeStatus, setUserLikeStatus] = useState(null);
     const [isLikingDisliking, setIsLikingDisliking] = useState(false);
-    const [relatedQuizzes, setRelatedQuizzes] = useState([]);
     
     const { width } = Dimensions.get('window');
 
@@ -110,7 +109,6 @@ export default function WatchInfo() {
             }
 
             let data = await res.json();
-            console.log(data);
             if (data.user && typeof data.user === 'string') {
                 const userDetails = await fetchUserDetails(data.user, token);
                 if (userDetails) {
@@ -459,6 +457,92 @@ export default function WatchInfo() {
         }
     };
 
+   const RelatedQuizzesSection = () => {
+    const [quizzesData, setQuizzesData] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchQuizzes = async () => {
+            if (contentType !== 'lesson' || !content?.relatedQuizzes || content.relatedQuizzes.length === 0) {
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const token = await AsyncStorage.getItem('userToken');
+                if (!token) return;
+
+                const fetchedQuizzes = [];
+                for (const quizId of content.relatedQuizzes) {
+                    const res = await fetch(`${API_BASE}/search/quizzes?keyword=${quizId}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.length > 0) fetchedQuizzes.push(data[0]);
+                    }
+                }
+                setQuizzesData(fetchedQuizzes);
+            } catch (error) {
+                console.log("Error fetching quizzes:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchQuizzes();
+    }, [content?.relatedQuizzes]);
+
+    if (contentType !== 'lesson' || !content?.relatedQuizzes || content.relatedQuizzes.length === 0) {
+        return null;
+    }
+
+    return (
+        <View style={styles.relatedQuizzesSection}>
+            <View style={styles.sectionHeader}>
+                <Feather name="book" size={20} color="#000c52" />
+                <Text style={styles.sectionTitle}>Related Quizzes</Text>
+            </View>
+            
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#000c52" />
+                </View>
+            ) : (
+                quizzesData.map(quiz => (
+                    <TouchableOpacity 
+                        key={quiz._id}
+                        style={styles.quizItem}
+                        onPress={() => navigation.navigate('DoQuiz', { quizId: quiz.quizId })}
+                    >
+                        <View style={styles.quizHeader}>
+                            <Feather name="file-text" size={16} color="#000c52" />
+                            <Text style={styles.quizTitle}>{quiz.title}</Text>
+                        </View>
+                        
+                        <View style={styles.quizMeta}>
+                            <View style={styles.metaItem}>
+                                <Feather name="book-open" size={14} color="#666" />
+                                <Text style={styles.metaText}>{quiz.subject}</Text>
+                            </View>
+                            
+                            <View style={styles.metaItem}>
+                                <Feather name="award" size={14} color="#666" />
+                                <Text style={styles.metaText}>Grade {quiz.grade}</Text>
+                            </View>
+                            
+                            <View style={styles.metaItem}>
+                                <Feather name="list" size={14} color="#666" />
+                                <Text style={styles.metaText}>{quiz.questions?.length || 0} Questions</Text>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                ))
+            )}
+        </View>
+    );
+};
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -548,6 +632,9 @@ export default function WatchInfo() {
                     </View>
 
                     <Text style={styles.contentDescription}>{content.description}</Text>
+
+                    {/* Related Quizzes Section */}
+                    <RelatedQuizzesSection />
 
                     {content.referenceLink && (
                         <TouchableOpacity onPress={() => Linking.openURL(content.referenceLink)} style={styles.referenceLinkButton}>
@@ -683,6 +770,7 @@ const styles = StyleSheet.create({
     },
     backButton: {
         marginRight: 15,
+        paddingTop:15
     },
     logo: {
         width: 120,
@@ -760,6 +848,44 @@ const styles = StyleSheet.create({
         lineHeight: 24,
         color: '#333',
         marginBottom: 15,
+    },
+    relatedQuizzesSection: {
+        marginTop: 20,
+        padding: 15,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 10,
+    },
+    relatedQuizzesTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#000',
+    },
+    quizItem: {
+        backgroundColor: '#fff',
+        padding: 15,
+        borderRadius: 8,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    quizTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 5,
+        color: '#000',
+    },
+    quizMeta: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    quizSubject: {
+        fontSize: 14,
+        color: '#666',
+    },
+    quizGrade: {
+        fontSize: 14,
+        color: '#666',
     },
     referenceLinkButton: {
         flexDirection: 'row',
@@ -907,5 +1033,55 @@ const styles = StyleSheet.create({
     },
     retryButtonText: {
         color: '#fff',
-    },
+    },relatedQuizzesSection: {
+    marginTop: 20,
+    paddingHorizontal: 15,
+},
+sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+},
+sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 8,
+    color: '#000',
+},
+loadingContainer: {
+    paddingVertical: 10,
+},
+quizItem: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+},
+quizHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+},
+quizTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginLeft: 8,
+    color: '#000',
+},
+quizMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+},
+metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+},
+metaText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 4,
+}
 });
